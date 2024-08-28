@@ -29,20 +29,20 @@ data Literal
   deriving (Show, Eq)
 
 -- base recursive lexing function
-lexStr :: String -> [Token]
-lexStr (ch : chs)
+tokenize :: String -> [Token]
+tokenize (ch : chs)
   | ch == '{' = Symbol OpenBrace : rest
   | ch == '}' = Symbol CloseBrace : rest
   | ch == '(' = Symbol OpenParen : rest
   | ch == ')' = Symbol CloseParen : rest
   | ch == ';' = Symbol Semi : rest
   | isSpace ch = rest
-  | isAlpha ch = let (id, rest) = lexIdentifier (ch : chs) in id : lexStr rest
-  | isDigit ch = let (id, rest) = lexNumber (ch : chs) in id : lexStr rest
+  | isAlpha ch = let (id, rest) = lexIdentifier (ch : chs) in id : tokenize rest
+  | isDigit ch = let (id, rest) = lexNumber (ch : chs) in id : tokenize rest
   | otherwise = error ("Invalid character: " ++ [ch])
   where
-    rest = lexStr chs
-lexStr "" = []
+    rest = tokenize chs
+tokenize [] = []
 
 -- greedily consumes characters until an invalid character is encountered, returns the rest
 lexIdentifier :: String -> (Token, String)
