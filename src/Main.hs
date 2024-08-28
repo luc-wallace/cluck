@@ -1,6 +1,7 @@
 module Main where
 
 import Lexer
+import Parser
 import System.Environment (getArgs)
 
 main :: IO ()
@@ -9,6 +10,8 @@ main = do
   case args of
     [file] -> do
       input <- readFile file
-      let tokens = lexStr input
-      print tokens
+      let tokens = tokenize input
+      let (block, rest) = parseBlock (Symbol OpenBrace) (Symbol CloseBrace) tokens
+      print block
+      print rest
     _ -> putStrLn "No input file passed"
