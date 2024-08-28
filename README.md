@@ -5,11 +5,14 @@ A compiler for a small subset of C written in Haskell
 ## Features
 
 Current:
+
 - Lexing
+- AST & parsing types
 
 Future:
+
+- Full parsing
 - Custom errors
-- Parsing & AST
 - Code generation
 
 ## Usage
