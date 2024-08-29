@@ -1,34 +1,12 @@
 module Parser where
 
-import Lexer
+import qualified AST as A
+import qualified Token as T
 
-type Identifier = String
-
-data AST
-  = Program [Declaration]
-
-data Statement
-  = Return Expression
-  deriving (Show)
-
-data Expression
-  = Literal Literal
-  deriving (Show)
-
-data Declaration
-  = Variable Identifier Expression
-  | Function Type Identifier [Statement]
-  deriving (Show)
-
-data Type
-  = Invalid
-  | Int
-  deriving (Show)
-
-parseBlock :: Token -> Token -> [Token] -> ([Token], [Token])
+parseBlock :: T.Token -> T.Token -> [T.Token] -> ([T.Token], [T.Token])
 parseBlock start end ts = let (block, rest) = parseBlock' start end ts $ -1 in (block, rest)
 
-parseBlock' :: Token -> Token -> [Token] -> Int -> ([Token], [Token])
+parseBlock' :: T.Token -> T.Token -> [T.Token] -> Int -> ([T.Token], [T.Token])
 parseBlock' _ _ [] _ = ([], [])
 parseBlock' start end (t : ts) depth
   | t == start = go $ depth + 1
@@ -42,26 +20,37 @@ parseBlock' start end (t : ts) depth
 -- parse :: [Token] -> Program
 -- parse t = let parseDeclaration
 
-parseDeclaration :: [Token] -> (Maybe Declaration, [Token])
+keywordToType :: T.Keyword -> A.Type
+keywordToType kw = case kw of
+  T.Int -> A.Integer
+  _ -> A.Invalid
+
+parseDeclaration :: [T.Token] -> (Maybe A.Declaration, [T.Token])
 parseDeclaration ts =
-  let (block, rest) = parseBlock (Symbol OpenBrace) (Symbol CloseBrace) ts
+  let (block, rest) = parseBlock (T.Symbol T.OpenBrace) (T.Symbol T.CloseBrace) ts
    in case block of
-        [Keyword kw, Symbol OpenBrace, Identifier name, _, Symbol CloseBrace] ->
-          ( Just
-              ( Function
-                  ( case kw of
-                      Lexer.Int -> Parser.Int
-                      _ -> Invalid
-                  )
-                  name
-                  []
-              ),
-            rest
+        (T.Keyword kw : T.Identifier name : T.Symbol T.OpenParen : T.Symbol T.CloseParen : T.Symbol T.OpenBrace : rs) ->
+          ( case reverse rs of
+              (T.Symbol T.CloseBrace : xs) ->
+                ( Just
+                    (A.Function (keywordToType kw) name (parseConstructs (reverse xs))),
+                  rest
+                )
+              _ -> error "Expected '}'"
           )
         _ -> (Nothing, block ++ rest)
 
-parseStatement :: [Token] -> [Statement]
-parseStatement _ = undefined
+parseConstructs :: [T.Token] -> [A.Construct]
+parseConstructs ts = case parseConstructs' ts of
+  (cs, []) -> cs
+  (_, rest) -> error ("remaining tokens: " ++ show rest)
 
-parseExpression :: [Token] -> Expression
+parseConstructs' :: [T.Token] -> ([A.Construct], [T.Token])
+parseConstructs' ts = ([], [])
+
+-- parseConstruct (T.Keyword kw : T.Identifier name : T.Symbol T.Semi : ts) = ([A.Declaration $ A.Variable (A.Integer) name Nothing], ts)
+-- parseConstruct (T.Keyword T.Return : ts) = ([A.Statement $ A.Return (A.Literal (T.Integer 0))], ts)
+-- parseConstruct _ = ([], [])
+
+parseExpression :: [T.Token] -> A.Expression
 parseExpression _ = undefined

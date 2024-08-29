@@ -1,8 +1,9 @@
 module Main where
 
-import Lexer
+import Lexer (tokenize)
 import Parser
 import System.Environment (getArgs)
+import Token
 
 main :: IO ()
 main = do
@@ -13,5 +14,6 @@ main = do
       let tokens = tokenize input
       let (block, rest) = parseBlock (Symbol OpenBrace) (Symbol CloseBrace) tokens
       print block
-      print rest
+      putStrLn ""
+      print $ parseDeclaration block
     _ -> putStrLn "No input file passed"
