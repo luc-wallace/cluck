@@ -1,4 +1,4 @@
-# cluc
+# cluck
 
 A compiler for a small subset of C written in Haskell
 
