@@ -1,4 +1,4 @@
-# Revision history for cluc
+# Revision history for cluck
 
 ## 0.1.0.0 -- YYYY-mm-dd
 

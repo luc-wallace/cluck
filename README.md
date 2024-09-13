@@ -24,5 +24,5 @@ ghcup install cabal
 ```
 
 ```
-cabal run cluc <input file>.c
+cabal run cluck <input file>.c
 ```

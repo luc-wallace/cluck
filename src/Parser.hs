@@ -3,6 +3,8 @@ module Parser where
 import qualified AST as A
 import qualified Token as T
 
+import AST.Stmt
+
 parseBlock :: T.Token -> T.Token -> [T.Token] -> ([T.Token], [T.Token])
 parseBlock start end ts = let (block, rest) = parseBlock' start end ts $ -1 in (block, rest)
 
@@ -46,7 +48,16 @@ parseConstructs ts = case parseConstructs' ts of
   (_, rest) -> error ("remaining tokens: " ++ show rest)
 
 parseConstructs' :: [T.Token] -> ([A.Construct], [T.Token])
-parseConstructs' ts = ([], [])
+parseConstructs' [] = ([], [])
+parseConstructs' ts = case ts of
+  (T.Keyword kw : T.Identifier name : T.Symbol T.Semi : rs) ->
+    (A.Declaration (A.Variable (keywordToType kw) name Nothing) : constructs, rest)
+    where
+      (constructs, rest) = parseConstructs' rs
+  (T.Keyword T.Return : rs) -> (A.Statement (A.Return (A.Literal $ T.Integer 0)) : constructs, rest)
+    where
+      (constructs, rest) = parseConstructs' rs
+  _ -> error ("parse error: " ++ show ts)
 
 -- parseConstruct (T.Keyword kw : T.Identifier name : T.Symbol T.Semi : ts) = ([A.Declaration $ A.Variable (A.Integer) name Nothing], ts)
 -- parseConstruct (T.Keyword T.Return : ts) = ([A.Statement $ A.Return (A.Literal (T.Integer 0))], ts)

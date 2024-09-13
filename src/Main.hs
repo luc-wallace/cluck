@@ -13,7 +13,6 @@ main = do
       input <- readFile file
       let tokens = tokenize input
       let (block, rest) = parseBlock (Symbol OpenBrace) (Symbol CloseBrace) tokens
-      print block
-      putStrLn ""
-      print $ parseDeclaration block
+      let decl = parseDeclaration block
+      print decl
     _ -> putStrLn "No input file passed"
