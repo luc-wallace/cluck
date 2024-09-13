@@ -15,6 +15,10 @@ Future:
 - Custom errors
 - Code generation
 
+## Resources used
+
+[C89 Draft](https://port70.net/%7Ensz/c/c89/c89-draft.html)
+
 ## Usage
 
 Tested with GHC 9.4
