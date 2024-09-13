@@ -3,8 +3,6 @@ module Parser where
 import qualified AST as A
 import qualified Token as T
 
-import AST.Stmt
-
 parseBlock :: T.Token -> T.Token -> [T.Token] -> ([T.Token], [T.Token])
 parseBlock start end ts = let (block, rest) = parseBlock' start end ts $ -1 in (block, rest)
 

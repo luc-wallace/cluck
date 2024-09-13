@@ -66,8 +66,7 @@ executable cluck
         Lexer
         Parser
         Token
-        AST.Stmt
-        AST.Expr
+        AST
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
