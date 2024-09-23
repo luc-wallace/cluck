@@ -18,6 +18,7 @@ Future:
 ## Resources used
 
 [C89 Draft](https://port70.net/%7Ensz/c/c89/c89-draft.html)
+[Functional Parsing - Computerphile](https://www.youtube.com/watch?v=dDtZLm7HIJs)
 
 ## Usage
 
