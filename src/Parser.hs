@@ -1,65 +1,170 @@
 module Parser where
 
-import qualified AST as A
-import qualified Token as T
+import Ast
+import Control.Monad.Combinators.Expr
+import Data.Void
+import Text.Megaparsec
+import Text.Megaparsec.Char
+import qualified Text.Megaparsec.Char.Lexer as L
 
-parseBlock :: T.Token -> T.Token -> [T.Token] -> ([T.Token], [T.Token])
-parseBlock start end ts = let (block, rest) = parseBlock' start end ts $ -1 in (block, rest)
+type Parser = Parsec Void String
 
-parseBlock' :: T.Token -> T.Token -> [T.Token] -> Int -> ([T.Token], [T.Token])
-parseBlock' _ _ [] _ = ([], [])
-parseBlock' start end (t : ts) depth
-  | t == start = go $ depth + 1
-  | t == end = if depth == 0 then ([t], ts) else go $ depth - 1
-  | otherwise = go depth
-  where
-    go d =
-      let (inner, rest) = parseBlock' start end ts d
-       in (t : inner, rest)
+sc :: Parser ()
+sc =
+  L.space
+    space1
+    (L.skipLineComment "//")
+    (L.skipBlockComment "/*" "*/")
 
--- parse :: [Token] -> Program
--- parse t = let parseDeclaration
+lexeme :: Parser a -> Parser a
+lexeme = L.lexeme sc
 
-keywordToType :: T.Keyword -> A.Type
-keywordToType kw = case kw of
-  T.Int -> A.Integer
-  _ -> A.Invalid
+symbol :: String -> Parser String
+symbol = L.symbol sc
 
-parseDeclaration :: [T.Token] -> (Maybe A.Declaration, [T.Token])
-parseDeclaration ts =
-  let (block, rest) = parseBlock (T.Symbol T.OpenBrace) (T.Symbol T.CloseBrace) ts
-   in case block of
-        (T.Keyword kw : T.Identifier name : T.Symbol T.OpenParen : T.Symbol T.CloseParen : T.Symbol T.OpenBrace : rs) ->
-          ( case reverse rs of
-              (T.Symbol T.CloseBrace : xs) ->
-                ( Just
-                    (A.Function (keywordToType kw) name (parseConstructs (reverse xs))),
-                  rest
-                )
-              _ -> error "Expected '}'"
-          )
-        _ -> (Nothing, block ++ rest)
+integer :: Parser Integer
+integer = lexeme L.decimal
 
-parseConstructs :: [T.Token] -> [A.Construct]
-parseConstructs ts = case parseConstructs' ts of
-  (cs, []) -> cs
-  (_, rest) -> error ("remaining tokens: " ++ show rest)
+charLiteral :: Parser Char
+charLiteral = between (char '\'') (char '\'') L.charLiteral
 
-parseConstructs' :: [T.Token] -> ([A.Construct], [T.Token])
-parseConstructs' [] = ([], [])
-parseConstructs' ts = case ts of
-  (T.Keyword kw : T.Identifier name : T.Symbol T.Semi : rs) ->
-    (A.Declaration (A.Variable (keywordToType kw) name Nothing) : constructs, rest)
-    where
-      (constructs, rest) = parseConstructs' rs
-  (T.Keyword T.Return : rs) -> (A.Statement (A.Return (A.Literal $ T.Integer 0)) : constructs, rest)
-    where
-      (constructs, rest) = parseConstructs' rs
-  _ -> error ("parse error: " ++ show ts)
+stringLiteral :: Parser String
+stringLiteral = char '\"' *> manyTill L.charLiteral (char '\"')
 
--- parseConstruct (T.Keyword kw : T.Identifier name : T.Symbol T.Semi : ts) = ([A.Declaration $ A.Variable (A.Integer) name Nothing], ts)
--- parseConstruct (T.Keyword T.Return : ts) = ([A.Statement $ A.Return (A.Literal (T.Integer 0))], ts)
--- parseConstruct _ = ([], [])
+nonDigit :: Parser Char
+nonDigit = alphaNumChar <|> char '_'
 
-parseExpression :: [T.Token] -> A.Expression
-parseExpression _ = undefined
+pOptionalInt :: Parser (Maybe ())
+pOptionalInt = optional (try (space1 <* string "int") <|> pure ())
+
+pType :: Parser Type
+pType =
+  choice
+    [ Void <$ string "void",
+      try (LongDouble <$ string "long" <* space1 <* string "double"),
+      Double <$ string "double",
+      Float <$ string "float",
+      Char <$ string "char",
+      try (UnsignedInt <$ string "unsigned" <* space1 <* string "int"),
+      try (UnsignedChar <$ string "unsigned" <* space1 <* string "char"),
+      SignedChar <$ string "signed" <* space1 <* string "char",
+      Int <$ string "int",
+      Long <$ string "long" <* pOptionalInt,
+      Short <$ string "short" <* pOptionalInt,
+      try (UnsignedShort <$ string "unsigned" <* space1 <* string "short" <* pOptionalInt),
+      UnsignedLong <$ string "unsigned" <* space1 <* string "long" <* pOptionalInt
+    ]
+
+pIdent :: Parser String
+pIdent = label "identifier" $ do
+  x <- letterChar
+  xs <- many nonDigit
+  return (x : xs)
+
+pVarDecl :: Parser Decl
+pVarDecl =
+  VariableDecl
+    <$> pType
+    <* space1
+    <*> lexeme pIdent
+    <*> optional (symbol "=" *> lexeme pExpr)
+    <* symbol ";"
+
+pDecl :: Parser Decl
+pDecl = do try pVarDecl <|> pFuncDecl
+
+pFuncDecl :: Parser Decl
+pFuncDecl =
+  FunctionDecl
+    <$> pType
+    <* space1
+    <*> lexeme pIdent
+    <* symbol "("
+    <* symbol ")"
+    <*> (Just <$> lexeme pBlockStmt <|> (symbol ";" *> pure Nothing))
+
+pExpr :: Parser Expr
+pExpr = label "expression" (makeExprParser pTerm operatorTable)
+
+pNum :: Parser Expr
+pNum = Number <$> try (L.decimal <|> L.float)
+
+pVarExpr :: Parser Expr
+pVarExpr = VariableExpr <$> pIdent
+
+pStmt :: Parser Stmt
+pStmt =
+  lexeme $
+    choice
+      [ pBlockStmt,
+        pReturnStmt,
+        pIfStmt,
+        pVarDeclStmt,
+        pVarAssignStmt,
+        pExprStmt
+      ]
+
+pVarDeclStmt :: Parser Stmt
+pVarDeclStmt = VariableDeclStmt <$> pVarDecl
+
+pVarAssignStmt :: Parser Stmt
+pVarAssignStmt = VariableAssignStmt <$> lexeme pIdent <* symbol "=" <*> lexeme pExpr <* symbol ";"
+
+pReturnStmt :: Parser Stmt
+pReturnStmt = ReturnStmt <$ string "return" <* space1 <*> lexeme pExpr <* symbol ";"
+
+pExprStmt :: Parser Stmt
+pExprStmt = ExprStmt <$> pExpr <* symbol ";"
+
+pBlockStmt :: Parser Stmt
+pBlockStmt = BlockStmt <$> between (symbol "{") (symbol "}") (many pStmt)
+
+pIfStmt :: Parser Stmt
+pIfStmt = IfStmt <$ symbol "if" <*> pParens <*> pStmt
+
+pParens :: Parser Expr
+pParens = between (symbol "(") (symbol ")") pExpr
+
+pTerm :: Parser Expr
+pTerm =
+  lexeme $
+    choice
+      [ pNum,
+        pVarExpr,
+        pParens
+      ]
+
+operatorTable :: [[Operator Parser Expr]]
+operatorTable =
+  [ [ prefix "!" Not,
+      prefix "-" Neg,
+      prefix "+" id
+    ],
+    [ binary "*" Mul,
+      binary "/" Div,
+      binary "%" Mod
+    ],
+    [ binary "+" Add,
+      binary "-" Sub
+    ],
+    [ binary "==" EqTo,
+      binary "!=" NtEqTo,
+      binary ">" Gt,
+      binary ">=" GtOrEqTo,
+      binary "<" Lt,
+      binary "<=" LtOrEqTo
+    ],
+    [ binary "&&" And,
+      binary "||" Or
+    ]
+  ]
+
+binary :: String -> (Expr -> Expr -> Expr) -> Operator Parser Expr
+binary name f = InfixL (f <$ symbol name)
+
+prefix, postfix :: String -> (Expr -> Expr) -> Operator Parser Expr
+prefix name f = Prefix (f <$ symbol name)
+postfix name f = Postfix (f <$ symbol name)
+
+pProgram :: Parser [Decl]
+pProgram = many pDecl <* eof
