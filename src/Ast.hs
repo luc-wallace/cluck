@@ -34,8 +34,9 @@ data Stmt
   deriving (Show)
 
 data Expr
-  = String String
-  | Number Double
+  = CharLiteral Char
+  | StringLiteral String
+  | NumberLiteral Double
   | VariableExpr Identifier
   | Not Expr
   | And Expr Expr

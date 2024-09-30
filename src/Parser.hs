@@ -25,11 +25,11 @@ symbol = L.symbol sc
 integer :: Parser Integer
 integer = lexeme L.decimal
 
-charLiteral :: Parser Char
-charLiteral = between (char '\'') (char '\'') L.charLiteral
+pCharLiteral :: Parser Expr
+pCharLiteral = CharLiteral <$> between (char '\'') (char '\'') L.charLiteral
 
-stringLiteral :: Parser String
-stringLiteral = char '\"' *> manyTill L.charLiteral (char '\"')
+pStringLiteral :: Parser Expr
+pStringLiteral = StringLiteral <$ char '\"' <*> manyTill L.charLiteral (char '\"')
 
 nonDigit :: Parser Char
 nonDigit = alphaNumChar <|> char '_'
@@ -87,7 +87,7 @@ pExpr :: Parser Expr
 pExpr = label "expression" (makeExprParser pTerm operatorTable)
 
 pNum :: Parser Expr
-pNum = Number <$> try (L.decimal <|> L.float)
+pNum = NumberLiteral <$> try (L.decimal <|> L.float)
 
 pVarExpr :: Parser Expr
 pVarExpr = VariableExpr <$> pIdent
@@ -131,7 +131,9 @@ pTerm =
     choice
       [ pNum,
         pVarExpr,
-        pParens
+        pParens,
+        pStringLiteral,
+        pCharLiteral
       ]
 
 operatorTable :: [[Operator Parser Expr]]

@@ -9,6 +9,7 @@ Current:
 - Variable and function declarations
 - Return, if and block statements
 - Expressions and precedence
+- Number, char and string literals
 - Binary and unary operators via +, -, \*, /, %, ==, !=, ||, &&, !, >, >=, <, <=
 - Detailed syntax errors
 
