@@ -53,7 +53,7 @@ extra-doc-files:    README.md
 common warnings
     ghc-options: -Wall
 
-executable parser-test
+executable cluck
     -- Import common warning flags.
     import:           warnings
 
