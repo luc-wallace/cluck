@@ -1,13 +1,15 @@
 module Parser where
 
 import Ast
+import Control.Monad
 import Control.Monad.Combinators.Expr
+import Data.Text (Text, pack)
 import Data.Void
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
-type Parser = Parsec Void String
+type Parser = Parsec Void Text
 
 sc :: Parser ()
 sc =
@@ -19,7 +21,7 @@ sc =
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
-symbol :: String -> Parser String
+symbol :: Text -> Parser Text
 symbol = L.symbol sc
 
 integer :: Parser Integer
@@ -29,7 +31,7 @@ pCharLiteral :: Parser Expr
 pCharLiteral = CharLiteral <$> between (char '\'') (char '\'') L.charLiteral
 
 pStringLiteral :: Parser Expr
-pStringLiteral = StringLiteral <$ char '\"' <*> manyTill L.charLiteral (char '\"')
+pStringLiteral = StringLiteral . pack <$ char '\"' <*> manyTill L.charLiteral (char '\"')
 
 nonDigit :: Parser Char
 nonDigit = alphaNumChar <|> char '_'
@@ -37,29 +39,66 @@ nonDigit = alphaNumChar <|> char '_'
 pOptionalInt :: Parser (Maybe ())
 pOptionalInt = optional (try (space1 <* string "int") <|> pure ())
 
+keywords :: [Text]
+keywords =
+  [ "auto",
+    "break",
+    "case",
+    "char",
+    "const",
+    "continue",
+    "default",
+    "do",
+    "double",
+    "else",
+    "enum",
+    "extern",
+    "float",
+    "for",
+    "goto",
+    "if",
+    "int",
+    "long",
+    "register",
+    "return",
+    "short",
+    "signed",
+    "sizeof",
+    "static",
+    "struct",
+    "switch",
+    "typedef",
+    "union",
+    "unsigned",
+    "void",
+    "volatile",
+    "while"
+  ]
+
 pType :: Parser Type
 pType =
   choice
-    [ Void <$ string "void",
+    [ try (Void <$ string "void"),
       try (LongDouble <$ string "long" <* space1 <* string "double"),
-      Double <$ string "double",
-      Float <$ string "float",
-      Char <$ string "char",
+      try (Double <$ string "double"),
+      try (Float <$ string "float"),
+      try (Char <$ string "char"),
       try (UnsignedInt <$ string "unsigned" <* space1 <* string "int"),
       try (UnsignedChar <$ string "unsigned" <* space1 <* string "char"),
-      SignedChar <$ string "signed" <* space1 <* string "char",
-      Int <$ string "int",
-      Long <$ string "long" <* pOptionalInt,
-      Short <$ string "short" <* pOptionalInt,
+      try (SignedChar <$ string "signed" <* space1 <* string "char"),
+      try (Int <$ string "int"),
+      try (Long <$ string "long" <* pOptionalInt),
+      try (Short <$ string "short" <* pOptionalInt),
       try (UnsignedShort <$ string "unsigned" <* space1 <* string "short" <* pOptionalInt),
-      UnsignedLong <$ string "unsigned" <* space1 <* string "long" <* pOptionalInt
+      try (UnsignedLong <$ string "unsigned" <* space1 <* string "long" <* pOptionalInt),
+      Custom <$> pIdent
     ]
 
-pIdent :: Parser String
+pIdent :: Parser Text
 pIdent = label "identifier" $ do
-  x <- letterChar
-  xs <- many nonDigit
-  return (x : xs)
+  ident <- (:) <$> letterChar <*> many nonDigit
+  when (pack ident `elem` keywords) $ fail "identifier cannot be keyword"
+  return $ pack ident
 
 pVarDecl :: Parser Decl
 pVarDecl =
@@ -71,7 +110,7 @@ pVarDecl =
     <* symbol ";"
 
 pDecl :: Parser Decl
-pDecl = do try pVarDecl <|> pFuncDecl
+pDecl = try pVarDecl <|> pFuncDecl
 
 pFuncDecl :: Parser Decl
 pFuncDecl =
@@ -79,9 +118,11 @@ pFuncDecl =
     <$> pType
     <* space1
     <*> lexeme pIdent
-    <* symbol "("
-    <* symbol ")"
-    <*> (Just <$> lexeme pBlockStmt <|> (symbol ";" *> pure Nothing))
+    <*> between (symbol "(") (symbol ")") (pFuncArg `sepBy` symbol ",")
+    <*> (Just <$> lexeme pBlockStmt <|> symbol ";" *> pure Nothing)
+
+pFuncArg :: Parser Arg
+pFuncArg = (,) <$> lexeme pType <*> lexeme pIdent
 
 pExpr :: Parser Expr
 pExpr = label "expression" (makeExprParser pTerm operatorTable)
@@ -92,6 +133,9 @@ pNum = NumberLiteral <$> try (L.decimal <|> L.float)
 pVarExpr :: Parser Expr
 pVarExpr = VariableExpr <$> pIdent
 
+pFuncExpr :: Parser Expr
+pFuncExpr = FunctionExpr <$> lexeme pIdent <*> between (symbol "(") (symbol ")") (pExpr `sepBy` symbol ",")
+
 pStmt :: Parser Stmt
 pStmt =
   lexeme $
@@ -99,8 +143,8 @@ pStmt =
       [ pBlockStmt,
         pReturnStmt,
         pIfStmt,
-        pVarDeclStmt,
-        pVarAssignStmt,
+        try pVarDeclStmt,
+        try pVarAssignStmt,
         pExprStmt
       ]
 
@@ -130,6 +174,7 @@ pTerm =
   lexeme $
     choice
       [ pNum,
+        try pFuncExpr,
         pVarExpr,
         pParens,
         pStringLiteral,
@@ -138,35 +183,35 @@ pTerm =
 
 operatorTable :: [[Operator Parser Expr]]
 operatorTable =
-  [ [ prefix "!" Not,
-      prefix "-" Neg,
+  [ [ prefix "!" $ UnaryOp Not,
+      prefix "-" $ UnaryOp Neg,
       prefix "+" id
     ],
-    [ binary "*" Mul,
-      binary "/" Div,
-      binary "%" Mod
+    [ binary "*" $ BinaryOp Mul,
+      binary "/" $ BinaryOp Div,
+      binary "%" $ BinaryOp Mod
     ],
-    [ binary "+" Add,
-      binary "-" Sub
+    [ binary "+" $ BinaryOp Add,
+      binary "-" $ BinaryOp Sub
     ],
-    [ binary "==" EqTo,
-      binary "!=" NtEqTo,
-      binary ">" Gt,
-      binary ">=" GtOrEqTo,
-      binary "<" Lt,
-      binary "<=" LtOrEqTo
+    [ binary "==" $ BinaryOp EqTo,
+      binary "!=" $ BinaryOp NtEqTo,
+      binary ">" $ BinaryOp Gt,
+      binary ">=" $ BinaryOp GtOrEqTo,
+      binary "<" $ BinaryOp Lt,
+      binary "<=" $ BinaryOp LtOrEqTo
     ],
-    [ binary "&&" And,
-      binary "||" Or
+    [ binary "&&" $ BinaryOp And,
+      binary "||" $ BinaryOp Or
     ]
   ]
 
-binary :: String -> (Expr -> Expr -> Expr) -> Operator Parser Expr
+binary :: Text -> (Expr -> Expr -> Expr) -> Operator Parser Expr
 binary name f = InfixL (f <$ symbol name)
 
-prefix, postfix :: String -> (Expr -> Expr) -> Operator Parser Expr
+prefix, postfix :: Text -> (Expr -> Expr) -> Operator Parser Expr
 prefix name f = Prefix (f <$ symbol name)
 postfix name f = Postfix (f <$ symbol name)
 
-pProgram :: Parser [Decl]
-pProgram = many pDecl <* eof
+pProgram :: Parser Program
+pProgram = Program <$ space <*> many pDecl <* eof

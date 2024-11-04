@@ -1,2 +1,5 @@
 *.c
 dist-newstyle
+*.o
+*.ll
+*.s

@@ -1,6 +1,12 @@
 module Ast where
 
-type Identifier = String
+import Data.List (intercalate)
+import Data.Text (Text, append)
+import Text.Printf (printf)
+
+type Identifier = Text
+
+newtype Program = Program [Decl] deriving (Show)
 
 data Type
   = Char
@@ -16,13 +22,33 @@ data Type
   | Double
   | LongDouble
   | Void
+  | Custom Identifier
   | Pointer Type
-  deriving (Show)
+  deriving (Show, Eq)
+
+typeStr :: Type -> Text
+typeStr Char = "char"
+typeStr SignedChar = "signed char"
+typeStr UnsignedChar = "unsigned char"
+typeStr Short = "short"
+typeStr UnsignedShort = "unsigned short"
+typeStr Int = "int"
+typeStr UnsignedInt = "unsigned int"
+typeStr Long = "long"
+typeStr UnsignedLong = "unsigned long"
+typeStr Float = "float"
+typeStr Double = "double"
+typeStr LongDouble = "long double"
+typeStr Void = "void"
+typeStr (Custom t) = t
+typeStr (Pointer t) = append (typeStr t) "*"
 
 data Decl
   = VariableDecl Type Identifier (Maybe Expr)
-  | FunctionDecl Type Identifier (Maybe Stmt)
+  | FunctionDecl Type Identifier [Arg] (Maybe Stmt)
   deriving (Show)
+
+type Arg = (Type, Identifier)
 
 data Stmt
   = VariableDeclStmt Decl
@@ -35,22 +61,39 @@ data Stmt
 
 data Expr
   = CharLiteral Char
-  | StringLiteral String
+  | StringLiteral Text
   | NumberLiteral Double
   | VariableExpr Identifier
-  | Not Expr
-  | And Expr Expr
-  | Or Expr Expr
-  | Add Expr Expr
-  | Mod Expr Expr
-  | Sub Expr Expr
-  | Mul Expr Expr
-  | Div Expr Expr
-  | Neg Expr
-  | EqTo Expr Expr
-  | NtEqTo Expr Expr
-  | Gt Expr Expr
-  | GtOrEqTo Expr Expr
-  | Lt Expr Expr
-  | LtOrEqTo Expr Expr
+  | FunctionExpr Identifier [Expr]
+  | UnaryOp Oprt Expr
+  | BinaryOp Oprt Expr Expr
   deriving (Show, Eq)
+
+data Oprt
+  = Not
+  | And
+  | Or
+  | Add
+  | Mod
+  | Sub
+  | Mul
+  | Div
+  | Neg
+  | EqTo
+  | NtEqTo
+  | Gt
+  | GtOrEqTo
+  | Lt
+  | LtOrEqTo
+  deriving (Show, Eq)
+
+genHeader :: Program -> String
+genHeader (Program p) = intercalate "\n" $ map showDecl p
+  where
+    showDecl (FunctionDecl t i args _) =
+      printf "%s %s(%s);" (typeStr t) i (showArgs args)
+    showDecl (VariableDecl t i _) =
+      printf "%s %s;" (typeStr t) i
+
+    showArgs args =
+      intercalate ", " $ map (\(ty, ident) -> printf "%s %s" (typeStr ty) ident) args
