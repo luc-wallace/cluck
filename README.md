@@ -25,11 +25,15 @@ Future:
 
 [C89 Draft](https://port70.net/%7Ensz/c/c89/c89-draft.html)
 
-[Writing a C Compiler, Part 1](https://norasandler.com/2017/11/29/Write-a-Compiler.html)
+[Writing a C Compiler - Nora Sandler](https://norasandler.com/2017/11/29/Write-a-Compiler.html)
 
 [Functional Parsing - Computerphile](https://www.youtube.com/watch?v=dDtZLm7HIJs)
 
 [Megaparsec tutorial](https://markkarpov.com/tutorial/megaparsec.html)
+
+[Compiling a functional language to LLVM - Daniel J. Harvey](https://danieljharvey.github.io/posts/2023-02-08-llvm-compiler-part-1.html)
+
+[Micro C - Joseph Morag](https://blog.josephmorag.com/posts/mcc0/)
 
 ## Usage
 
