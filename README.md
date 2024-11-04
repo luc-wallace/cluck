@@ -12,14 +12,13 @@ Current:
 - Number, char and string literals
 - Binary and unary operators via +, -, \*, /, %, ==, !=, ||, &&, !, >, >=, <, <=
 - Detailed syntax errors
+- Static analysis for bindings and types
 
 Future:
 
-- Function arguments
 - For loops
 - Pointer types
 - Structs
-- Semantic analysis
 - Code generation
 
 ## Resources used
