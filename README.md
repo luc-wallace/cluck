@@ -1,6 +1,8 @@
 # cluck
 
-A compiler for a small subset of C written in Haskell
+A compiler for a subset of C written in Haskell.
+
+Inspired by [MicroC](https://blog.josephmorag.com/posts/mcc0/)
 
 ## Features
 
@@ -37,7 +39,9 @@ Future:
 
 ## Usage
 
-Tested with GHC 9.4
+Only compatible with GHC 8.8.
+
+Requires LLVM 14 to be installed including Clang 14.
 
 ```
 ghcup install cabal
