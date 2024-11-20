@@ -70,16 +70,23 @@ executable cluck
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.17.2.1,
+    build-depends:    base,
                       megaparsec,
                       parser-combinators,
                       text,
-                      containers
-
+                      containers,
+                      llvm-hs-pure,
+                      llvm-hs-pretty,
+                      mtl,
+                      string-conversions,
+                      optparse-applicative
     -- Directories containing source files.
     hs-source-dirs:   src
 
     -- Base language which the package is written in.
     default-language: Haskell2010
 
-    default-extensions: OverloadedStrings
+    default-extensions: OverloadedStrings,
+                        ConstraintKinds,
+                        FlexibleContexts,
+                        RecursiveDo
