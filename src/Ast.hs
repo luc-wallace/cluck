@@ -13,6 +13,7 @@ data Type
   | SignedChar
   | UnsignedChar
   | Short
+  | Bool
   | UnsignedShort
   | Int
   | UnsignedInt
@@ -24,29 +25,34 @@ data Type
   | Void
   | Custom Identifier
   | Pointer Type
-  deriving (Show, Eq)
+  deriving (Eq)
 
-typeStr :: Type -> Text
-typeStr Char = "char"
-typeStr SignedChar = "signed char"
-typeStr UnsignedChar = "unsigned char"
-typeStr Short = "short"
-typeStr UnsignedShort = "unsigned short"
-typeStr Int = "int"
-typeStr UnsignedInt = "unsigned int"
-typeStr Long = "long"
-typeStr UnsignedLong = "unsigned long"
-typeStr Float = "float"
-typeStr Double = "double"
-typeStr LongDouble = "long double"
-typeStr Void = "void"
-typeStr (Custom t) = t
-typeStr (Pointer t) = append (typeStr t) "*"
+instance Show Type where
+  show Char = "char"
+  show Bool = "bool"
+  show SignedChar = "signed char"
+  show UnsignedChar = "unsigned char"
+  show Short = "short"
+  show UnsignedShort = "unsigned short"
+  show Int = "int"
+  show UnsignedInt = "unsigned int"
+  show Long = "long"
+  show UnsignedLong = "unsigned long"
+  show Float = "float"
+  show Double = "double"
+  show LongDouble = "long double"
+  show Void = "void"
+  show (Custom t) = show t
+  show (Pointer t) = show t ++ "*"
 
 data Decl
   = VariableDecl Type Identifier (Maybe Expr)
   | FunctionDecl Type Identifier [Arg] (Maybe Stmt)
   deriving (Show)
+
+declTy :: Decl -> Type
+declTy (VariableDecl t _ _) = t
+declTy (FunctionDecl t _ _ _) = t
 
 type Arg = (Type, Identifier)
 
@@ -63,6 +69,7 @@ data Expr
   = CharLiteral Char
   | StringLiteral Text
   | NumberLiteral Double
+  | BoolLiteral Bool
   | VariableExpr Identifier
   | FunctionExpr Identifier [Expr]
   | UnaryOp Oprt Expr
@@ -85,15 +92,32 @@ data Oprt
   | GtOrEqTo
   | Lt
   | LtOrEqTo
-  deriving (Show, Eq)
+  deriving (Eq)
+
+instance Show Oprt where
+  show Not = "!"
+  show And = "&&"
+  show Or = "||"
+  show Add = "+"
+  show Mod = "%"
+  show Sub = "-"
+  show Mul = "*"
+  show Div = "/"
+  show Neg = "-"
+  show EqTo = "=="
+  show NtEqTo = "!="
+  show Gt = ">"
+  show GtOrEqTo = ">="
+  show Lt = "<"
+  show LtOrEqTo = "<="
 
 genHeader :: Program -> String
 genHeader (Program p) = intercalate "\n" $ map showDecl p
   where
     showDecl (FunctionDecl t i args _) =
-      printf "%s %s(%s);" (typeStr t) i (showArgs args)
+      printf "%s %s(%s);" (show t) i (showArgs args)
     showDecl (VariableDecl t i _) =
-      printf "%s %s;" (typeStr t) i
+      printf "%s %s;" (show t) i
 
     showArgs args =
-      intercalate ", " $ map (\(ty, ident) -> printf "%s %s" (typeStr ty) ident) args
+      intercalate ", " $ map (\(ty, ident) -> printf "%s %s" (show ty) ident) args
