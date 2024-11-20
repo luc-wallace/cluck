@@ -33,6 +33,9 @@ pCharLiteral = CharLiteral <$> between (char '\'') (char '\'') L.charLiteral
 pStringLiteral :: Parser Expr
 pStringLiteral = StringLiteral . pack <$ char '\"' <*> manyTill L.charLiteral (char '\"')
 
+pBoolLiteral :: Parser Expr
+pBoolLiteral = BoolLiteral <$> (True <$ string "true" <|> False <$ string "false")
+
 nonDigit :: Parser Char
 nonDigit = alphaNumChar <|> char '_'
 
@@ -175,8 +178,9 @@ pTerm =
     choice
       [ pNum,
         try pFuncExpr,
-        pVarExpr,
+        try pVarExpr,
         pParens,
+        pBoolLiteral,
         pStringLiteral,
         pCharLiteral
       ]
