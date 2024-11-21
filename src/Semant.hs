@@ -1,51 +1,24 @@
 module Semant where
 
+import Analysis
 import Ast
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Text (Text)
+import Sast
 import qualified Text.Printf as Text
 
 -- TODO: check invalid returns
 
-newtype SProgram = SProgram [SDecl] deriving (Show)
+type Semant = ExceptT SemantError (State Env)
 
 data Env = Env
   { vars :: Map Identifier Decl,
     funcs :: Map Identifier Decl,
     curFunc :: (Identifier, Type)
   }
-
-type Semant = ExceptT SemantError (State Env)
-
-data SDecl
-  = SVariableDecl Type Identifier (Maybe SExpr)
-  | SFunctionDecl Type Identifier [Arg] (Maybe SStmt)
-  deriving (Show)
-
-data SStmt
-  = SVariableDeclStmt SDecl
-  | SVariableAssignStmt Identifier SExpr
-  | SBlockStmt [SStmt]
-  | SExprStmt SExpr
-  | SIfStmt SExpr SStmt
-  | SReturnStmt SExpr
-  deriving (Show)
-
-type SExpr = (Type, SExpr')
-
-data SExpr'
-  = SCharLiteral Char
-  | SStringLiteral Text
-  | SNumberLiteral Double
-  | SBoolLiteral Bool
-  | SVariableExpr Identifier
-  | SFunctionExpr Identifier [SExpr]
-  | SUnaryOp Oprt SExpr
-  | SBinaryOp Oprt SExpr SExpr
-  deriving (Show, Eq)
 
 data DeclKind
   = Function
@@ -63,6 +36,7 @@ data SemantError
   | BinaryOprtError Oprt Type Type
   | UnaryOprtError Oprt Type
   | VoidError DeclKind Identifier
+  | ReturnError Identifier Type
 
 instance Show SemantError where
   show (NameError d ident) = Text.printf "error: %s %s is not defined" (dKind d) ident
@@ -74,6 +48,8 @@ instance Show SemantError where
   show (VoidError d ident) = case d of
     Function -> Text.printf "error: unexpected return statement in function %s(...) of type void" ident
     Variable -> Text.printf "error: variable cannot have type void"
+  show (ReturnError ident Void) = Text.printf "error: void function %s(...) cannot return a value" ident
+  show (ReturnError ident _) = Text.printf "error: non-void function %s(...) does not return a value in all control paths" ident
 
 isNumeric :: Type -> Bool
 isNumeric t = t `elem` [Int, Float, Char, Bool]
@@ -113,9 +89,12 @@ analyseDecl d@(FunctionDecl t ident args stmt) = do
 
   sDecl <- case stmt of
     Nothing -> pure $ SFunctionDecl t ident args Nothing
-    Just s -> do
+    Just s@(BlockStmt stmts) -> do
       sStmt <- analyseStmt s
+      unless (t == Void || validate (genCFG stmts)) $ throwError $ ReturnError ident t
+
       pure $ SFunctionDecl t ident args (Just sStmt)
+    _ -> error "error: parse failed"
 
   modify $ \env -> env {vars = vars'}
   pure sDecl
@@ -163,18 +142,27 @@ analyseStmt (VariableAssignStmt ident expr) = do
 analyseStmt (ExprStmt expr) = do
   sExpr <- analyseExpr expr
   pure $ SExprStmt sExpr
-analyseStmt (IfStmt expr stmt) = do
-  sExpr <- analyseExpr expr
-  sStmt <- analyseStmt stmt
-  pure $ SIfStmt sExpr sStmt
-analyseStmt (ReturnStmt expr) = do
-  (ident, rett) <- gets curFunc
-  sExpr@(t, _) <- analyseExpr expr
+analyseStmt (IfStmt expr t e) = do
+  sExpr@(ty, _) <- analyseExpr expr
+  unless (ty == Bool) $ throwError $ TypeError Bool ty
 
-  when (rett == Void) $ throwError $ VoidError Function ident
-  if rett == t
-    then pure $ SReturnStmt sExpr
-    else throwError $ TypeError rett t
+  sThen <- analyseStmt t
+  case e of
+    Nothing -> pure $ SIfStmt sExpr sThen Nothing
+    Just stmt -> do
+      s <- analyseStmt stmt
+      pure $ SIfStmt sExpr sThen (Just s)
+analyseStmt (ReturnStmt e) = do
+  (ident, rett) <- gets curFunc
+  case (e, rett) of
+    (Nothing, Void) -> pure $ SReturnStmt Nothing
+    (Nothing, _) -> throwError $ ReturnError ident rett
+    (Just _, Void) -> throwError $ VoidError Function ident
+    (Just expr, _) -> do
+      sExpr@(t, _) <- analyseExpr expr
+      if rett == t
+        then pure $ SReturnStmt (Just sExpr)
+        else throwError $ TypeError rett t
 analyseStmt _ = error "error: parse failed"
 
 analyseExpr :: Expr -> Semant SExpr

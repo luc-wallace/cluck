@@ -158,7 +158,7 @@ pVarAssignStmt :: Parser Stmt
 pVarAssignStmt = VariableAssignStmt <$> lexeme pIdent <* symbol "=" <*> lexeme pExpr <* symbol ";"
 
 pReturnStmt :: Parser Stmt
-pReturnStmt = ReturnStmt <$ string "return" <* space1 <*> lexeme pExpr <* symbol ";"
+pReturnStmt = ReturnStmt <$ string "return" <*> optional (space1 *> lexeme pExpr) <* symbol ";"
 
 pExprStmt :: Parser Stmt
 pExprStmt = ExprStmt <$> pExpr <* symbol ";"
@@ -167,7 +167,7 @@ pBlockStmt :: Parser Stmt
 pBlockStmt = BlockStmt <$> between (symbol "{") (symbol "}") (many pStmt)
 
 pIfStmt :: Parser Stmt
-pIfStmt = IfStmt <$ symbol "if" <*> pParens <*> pStmt
+pIfStmt = IfStmt <$ symbol "if" <*> pParens <*> pStmt <*> optional (symbol "else" *> pStmt)
 
 pParens :: Parser Expr
 pParens = between (symbol "(") (symbol ")") pExpr

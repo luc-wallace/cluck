@@ -63,8 +63,10 @@ executable cluck
     -- Modules included in this executable, other than Main.
     other-modules:    Parser
                       Ast
+                      Sast
                       Codegen
                       Semant
+                      Analysis
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

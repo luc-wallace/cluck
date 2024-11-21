@@ -1,7 +1,7 @@
 module Ast where
 
 import Data.List (intercalate)
-import Data.Text (Text, append)
+import Data.Text (Text)
 import Text.Printf (printf)
 
 type Identifier = Text
@@ -61,8 +61,8 @@ data Stmt
   | VariableAssignStmt Identifier Expr
   | BlockStmt [Stmt]
   | ExprStmt Expr
-  | IfStmt Expr Stmt
-  | ReturnStmt Expr
+  | IfStmt Expr Stmt (Maybe Stmt)
+  | ReturnStmt (Maybe Expr)
   deriving (Show)
 
 data Expr

@@ -1,6 +1,7 @@
 module Codegen where
 
 import Ast
+import Sast
 import Control.Monad.State
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -129,11 +130,11 @@ codegenExpr (t, SUnaryOp op ex) = do
     _ -> error "internal error: semant failed"
 codegenExpr _ = error "internal error: semant failed"
 
-codegenStmt :: SStmt -> Codegen ()
-codegenStmt (SExprStmt expr) = void $ codegenExpr expr
-codegenStmt (SReturnStmt expr) = case expr of
-  (Void, _) -> L.retVoid
-  _ -> do
-    expr' <- codegenExpr expr
-    L.ret expr'
-codegenStmt (SBlockStmt stmts) = mapM_ codegenStmt stmts
+-- codegenStmt :: SStmt -> Codegen ()
+-- codegenStmt (SExprStmt expr) = void $ codegenExpr expr
+-- codegenStmt (SReturnStmt expr) = case expr of
+--   (Void, _) -> L.retVoid
+--   _ -> do
+--     expr' <- codegenExpr expr
+--     L.ret expr'
+-- codegenStmt (SBlockStmt stmts) = mapM_ codegenStmt stmts
