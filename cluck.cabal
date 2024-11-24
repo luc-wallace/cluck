@@ -81,7 +81,8 @@ executable cluck
                       llvm-hs-pretty,
                       mtl,
                       string-conversions,
-                      optparse-applicative
+                      optparse-applicative,
+                      process
     -- Directories containing source files.
     hs-source-dirs:   src
 

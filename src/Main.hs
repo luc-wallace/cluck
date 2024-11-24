@@ -9,7 +9,10 @@ import Options.Applicative
 import Parser (pProgram)
 import Semant (analyseProgram)
 import System.Exit
+import System.Process
 import Text.Megaparsec
+
+-- TODO: check if clang is installed
 
 data Input
   = FileInput FilePath
@@ -17,7 +20,7 @@ data Input
 
 data Output
   = FileOutput FilePath
-  | StdOutput
+  | DefaultOutput
 
 data Options = Options Input Output
 
@@ -32,7 +35,7 @@ pOutput =
           <> short 'o'
           <> metavar "FILE"
       )
-    <|> pure StdOutput
+    <|> pure DefaultOutput
 
 options :: ParserInfo Options
 options =
@@ -58,8 +61,9 @@ main = do
     Left err -> putStrLn (errorBundlePretty err) *> exitFailure
     Right ast -> case analyseProgram ast of
       Left err -> print err *> exitFailure
-      Right sast ->
+      Right sast -> do
         let llvm = unpack . ppllvm . codegenProgram $ sast
-         in case out of
-              FileOutput outFile -> writeFile outFile llvm
-              StdOutput -> putStrLn llvm
+        let output = case out of
+              FileOutput outFile -> outFile
+              DefaultOutput -> "out"
+        putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
