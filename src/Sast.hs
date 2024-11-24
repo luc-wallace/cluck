@@ -7,7 +7,7 @@ newtype SProgram = SProgram [SDecl] deriving (Show)
 
 data SDecl
   = SVariableDecl Type Identifier (Maybe SExpr)
-  | SFunctionDecl Type Identifier [Arg] (Maybe SStmt)
+  | SFunctionDecl Type Identifier [Arg] SStmt
   deriving (Show)
 
 data SStmt
@@ -15,7 +15,7 @@ data SStmt
   | SVariableAssignStmt Identifier SExpr
   | SBlockStmt [SStmt]
   | SExprStmt SExpr
-  | SIfStmt SExpr SStmt (Maybe SStmt)
+  | SIfStmt SExpr SStmt SStmt
   | SReturnStmt (Maybe SExpr)
   deriving (Show)
 

@@ -218,4 +218,4 @@ prefix name f = Prefix (f <$ symbol name)
 postfix name f = Postfix (f <$ symbol name)
 
 pProgram :: Parser Program
-pProgram = Program <$ space <*> many pDecl <* eof
+pProgram = Program <$ space <*> many (lexeme pDecl) <* eof

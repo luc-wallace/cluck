@@ -1,10 +1,11 @@
 module Codegen where
 
 import Ast
-import Sast
 import Control.Monad.State
 import Data.Map (Map)
-import qualified Data.Map as Map
+import qualified Data.Map as M
+import Data.Maybe (fromJust)
+import Data.String.Conversions (cs)
 import qualified LLVM.AST as AST hiding (function)
 import qualified LLVM.AST.FloatingPointPredicate as FP
 import qualified LLVM.AST.IntegerPredicate as IP
@@ -13,7 +14,9 @@ import qualified LLVM.IRBuilder.Constant as L
 import qualified LLVM.IRBuilder.Instruction as L
 import qualified LLVM.IRBuilder.Module as L
 import qualified LLVM.IRBuilder.Monad as L
-import Semant hiding (Env)
+import Sast
+
+-- TODO: function arguments
 
 newtype Env = Env {operands :: Map Identifier AST.Operand}
 
@@ -33,35 +36,36 @@ convType t = case t of
   _ -> error $ "invalid type: " ++ show t
 
 registerOperand :: MonadState Env m => Identifier -> AST.Operand -> m ()
-registerOperand ident op = modify $ \env -> env {operands = Map.insert ident op (operands env)}
+registerOperand ident op = modify $ \env -> env {operands = M.insert ident op (operands env)}
 
--- codegenProgram :: SProgram -> AST.Module
--- codegenProgram (SProgram decls) =
---   flip evalState (Env {operands = Map.empty}) $
---     L.buildModuleT "cluck" $
---       do
---         mapM_ codegenDecl decls
---         L.function "main" [] AST.i32 $ \_ -> do
---           expr <- codegenExpr (Int, SNumberLiteral 5)
---           L.ret expr
+codegenProgram :: SProgram -> AST.Module
+codegenProgram (SProgram decls) =
+  flip evalState (Env {operands = M.empty}) $
+    L.buildModuleT "cluck" $ mapM_ codegenDecl decls
 
--- codegenDecl :: SDecl -> LLVM ()
--- codegenDecl (SFunctionDecl t ident args body) = mdo
---   registerOperand ident function
-
---   function <- do
---     rett <- convType t
---     body <- codegenStmt body
---     L.function (AST.mkName $ cs ident) (map mkArg args) rett $ codegenStmt body
---   pure ()
---   where
---     mkArg (t', ident') = (,) <$> convType t' *> pure (L.ParameterName (cs ident'))
+codegenDecl :: SDecl -> LLVM ()
+codegenDecl (SFunctionDecl t ident args b) = mdo
+  modify $ \env -> env {operands = M.insert ident function (operands env)} -- add memory address to env
+  rett <- convType t
+  function <- L.function (AST.mkName $ cs ident) [] rett genBody
+  pure ()
+  where
+    mkArg (t', ident') = (,) <$> convType t' *> pure (L.ParameterName (cs ident'))
+    genBody :: [AST.Operand] -> Codegen ()
+    genBody ops = do
+      _ <- L.block `L.named` "entry"
+      codegenStmt b
 
 codegenExpr :: SExpr -> Codegen AST.Operand
 codegenExpr (Int, SNumberLiteral n) = pure $ L.int32 $ round n
 codegenExpr (Long, SNumberLiteral n) = pure $ L.int64 $ round n
 codegenExpr (Float, SNumberLiteral n) = pure $ L.double n
-codegenExpr (_, SVariableExpr ident) = gets ((Map.! ident) . operands)
+codegenExpr (_, SVariableExpr ident) = do
+  op <- gets (fromJust . M.lookup ident . operands)
+  L.load op 0
+codegenExpr (t, SFunctionExpr ident args) = do
+  op <- gets (fromJust . M.lookup ident . operands)
+  L.call op []
 codegenExpr (Bool, SBoolLiteral b) = pure $ L.bit $ if b then 1 else 0
 codegenExpr (Char, SCharLiteral c) = pure $ L.int8 $ fromIntegral $ fromEnum c
 codegenExpr (t, SBinaryOp op lex rex) = do
@@ -76,40 +80,40 @@ codegenExpr (t, SBinaryOp op lex rex) = do
       (Int, Int) -> L.sub lhs rhs
       (Float, Float) -> L.fsub lhs rhs
       _ -> error "internal error: semant failed"
-    Mul -> case t of
+    Mul -> case fst lex of
       Int -> L.mul lhs rhs
       Float -> L.fmul lhs rhs
       _ -> error "internal error: semant failed"
-    Div -> case t of
+    Div -> case fst lex of
       Int -> L.sdiv lhs rhs
       Float -> L.fdiv lhs rhs
       _ -> error "internal error: semant failed"
-    EqTo -> case t of
+    EqTo -> case fst lex of
       Int -> L.icmp IP.EQ lhs rhs
       Char -> L.icmp IP.EQ lhs rhs
       Float -> L.fcmp FP.OEQ lhs rhs
       _ -> error "internal error: semant failed"
-    NtEqTo -> case t of
+    NtEqTo -> case fst lex of
       Int -> L.icmp IP.NE lhs rhs
       Char -> L.icmp IP.NE lhs rhs
       Float -> L.fcmp FP.ONE lhs rhs
       _ -> error "internal error: semant failed"
-    Lt -> case t of
+    Lt -> case fst lex of
       Int -> L.icmp IP.SLT lhs rhs
       Char -> L.icmp IP.ULT lhs rhs
       Float -> L.fcmp FP.OLT lhs rhs
       _ -> error "internal error: semant failed"
-    LtOrEqTo -> case t of
+    LtOrEqTo -> case fst lex of
       Int -> L.icmp IP.SLE lhs rhs
       Char -> L.icmp IP.ULE lhs rhs
       Float -> L.fcmp FP.OLT lhs rhs
       _ -> error "internal error: semant failed"
-    Gt -> case t of
+    Gt -> case fst lex of
       Int -> L.icmp IP.SGT lhs rhs
       Char -> L.icmp IP.UGT lhs rhs
       Float -> L.fcmp FP.OGT lhs rhs
       _ -> error "internal error: semant failed"
-    GtOrEqTo -> case t of
+    GtOrEqTo -> case fst lex of
       Int -> L.icmp IP.SGE lhs rhs
       Char -> L.icmp IP.UGE lhs rhs
       Float -> L.fcmp FP.OGE lhs rhs
@@ -130,11 +134,47 @@ codegenExpr (t, SUnaryOp op ex) = do
     _ -> error "internal error: semant failed"
 codegenExpr _ = error "internal error: semant failed"
 
--- codegenStmt :: SStmt -> Codegen ()
--- codegenStmt (SExprStmt expr) = void $ codegenExpr expr
--- codegenStmt (SReturnStmt expr) = case expr of
---   (Void, _) -> L.retVoid
---   _ -> do
---     expr' <- codegenExpr expr
---     L.ret expr'
--- codegenStmt (SBlockStmt stmts) = mapM_ codegenStmt stmts
+codegenStmt :: SStmt -> Codegen ()
+codegenStmt (SExprStmt expr) = void $ codegenExpr expr
+codegenStmt (SReturnStmt expr) = case expr of
+  Nothing -> L.retVoid
+  Just e -> do
+    op <- codegenExpr e
+    L.ret op
+codegenStmt (SBlockStmt stmts) = mapM_ codegenStmt stmts
+codegenStmt (SIfStmt cond t e) = mdo
+  c <- codegenExpr cond
+  L.condBr c thenBlock elseBlock
+
+  thenBlock <- L.block `L.named` "then"
+  codegenStmt t
+  mkTerminator $ L.br mergeBlock
+
+  elseBlock <- L.block `L.named` "else"
+  codegenStmt e
+  mkTerminator $ L.br mergeBlock
+
+  mergeBlock <- L.block `L.named` "merge"
+  pure ()
+codegenStmt (SVariableDeclStmt (SVariableDecl t ident expr)) = do
+  ty <- convType t
+  addr <- L.alloca ty Nothing 0
+  modify $ \env -> env {operands = M.insert ident addr (operands env)} -- add memory address to env
+  case expr of
+    Nothing -> pure ()
+    Just e -> do
+      op <- codegenExpr e
+      L.store addr 0 op
+codegenStmt (SVariableAssignStmt ident expr) = do
+  operands' <- gets operands
+  case M.lookup ident operands' of
+    Just addr -> do
+      op' <- codegenExpr expr
+      L.store addr 0 op'
+    Nothing -> error "error: semant failed"
+codegenStmt _ = undefined
+
+mkTerminator :: Codegen () -> Codegen ()
+mkTerminator instr = do
+  check <- L.hasTerminator
+  unless check instr

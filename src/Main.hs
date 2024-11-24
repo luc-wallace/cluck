@@ -1,7 +1,6 @@
 module Main where
 
--- import Codegen (codegenProgram)
-import qualified Data.Map as Map
+import Codegen (codegenProgram)
 import qualified Data.Text.IO as IO
 import qualified Data.Text.IO as T
 import Data.Text.Lazy
@@ -9,6 +8,7 @@ import LLVM.Pretty (ppllvm)
 import Options.Applicative
 import Parser (pProgram)
 import Semant (analyseProgram)
+import System.Exit
 import Text.Megaparsec
 
 data Input
@@ -46,7 +46,7 @@ main :: IO ()
 main = do
   Options inp out <- execParser options
 
-  (file, source) <- case inp of
+  (inFile, source) <- case inp of
     FileInput f -> do
       content <- T.readFile f
       return (f, content)
@@ -54,8 +54,12 @@ main = do
       content <- IO.getContents
       return ("<stdin>", content)
 
-  case runParser pProgram file source of
-    Left err -> putStrLn $ errorBundlePretty err
+  case runParser pProgram inFile source of
+    Left err -> putStrLn (errorBundlePretty err) *> exitFailure
     Right ast -> case analyseProgram ast of
-      Left err -> print err
-      Right sast -> print sast
+      Left err -> print err *> exitFailure
+      Right sast ->
+        let llvm = unpack . ppllvm . codegenProgram $ sast
+         in case out of
+              FileOutput outFile -> writeFile outFile llvm
+              StdOutput -> putStrLn llvm

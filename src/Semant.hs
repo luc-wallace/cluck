@@ -10,7 +10,7 @@ import Data.Text (Text)
 import Sast
 import qualified Text.Printf as Text
 
--- TODO: check invalid returns
+-- TODO: improve error messages
 
 type Semant = ExceptT SemantError (State Env)
 
@@ -88,12 +88,12 @@ analyseDecl d@(FunctionDecl t ident args stmt) = do
     throwError $ RedefinitionError Function ident
 
   sDecl <- case stmt of
-    Nothing -> pure $ SFunctionDecl t ident args Nothing
+    Nothing -> pure $ SFunctionDecl t ident args (SBlockStmt [])
     Just s@(BlockStmt stmts) -> do
       sStmt <- analyseStmt s
       unless (t == Void || validate (genCFG stmts)) $ throwError $ ReturnError ident t
 
-      pure $ SFunctionDecl t ident args (Just sStmt)
+      pure $ SFunctionDecl t ident args sStmt
     _ -> error "error: parse failed"
 
   modify $ \env -> env {vars = vars'}
@@ -148,10 +148,10 @@ analyseStmt (IfStmt expr t e) = do
 
   sThen <- analyseStmt t
   case e of
-    Nothing -> pure $ SIfStmt sExpr sThen Nothing
+    Nothing -> pure $ SIfStmt sExpr sThen (SBlockStmt [])
     Just stmt -> do
       s <- analyseStmt stmt
-      pure $ SIfStmt sExpr sThen (Just s)
+      pure $ SIfStmt sExpr sThen s
 analyseStmt (ReturnStmt e) = do
   (ident, rett) <- gets curFunc
   case (e, rett) of
