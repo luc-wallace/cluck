@@ -206,7 +206,7 @@ analyseExpr (BinaryOp op e1 e2) = do
 analyseExpr (UnaryOp op expr) = do
   sExpr@(t, _) <- analyseExpr expr
   case op of
-    Not -> if t == Bool then pure sExpr else throwError $ UnaryOprtError op t
-    Neg -> if isNumeric t then pure sExpr else throwError $ UnaryOprtError op t
+    Not -> if t == Bool then pure (Bool, SUnaryOp Not sExpr) else throwError $ UnaryOprtError op t
+    Neg -> if isNumeric t then pure (t, SUnaryOp Neg sExpr) else throwError $ UnaryOprtError op t
     _ -> error $ "error: invalid unary operator " ++ show op
 analyseExpr expr = error $ "error: expression not implemented " ++ show expr
