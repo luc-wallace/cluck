@@ -22,7 +22,12 @@ data Output
   = FileOutput FilePath
   | DefaultOutput
 
-data Options = Options Input Output
+data Mode
+  = LLVM
+  | Binary
+  deriving (Eq)
+
+data Options = Options Input Output Mode
 
 pInput :: Parser Input
 pInput = FileInput <$> argument str (metavar "FILE") <|> pure StdInput
@@ -37,17 +42,20 @@ pOutput =
       )
     <|> pure DefaultOutput
 
+pMode :: Parser Mode
+pMode = flag Binary LLVM (long "assemble" <> short 'S')
+
 options :: ParserInfo Options
 options =
   info
-    (Options <$> pInput <*> pOutput)
+    (Options <$> pInput <*> pOutput <*> pMode)
     ( fullDesc
         <> header "cluck - a tiny c compiler"
     )
 
 main :: IO ()
 main = do
-  Options inp out <- execParser options
+  Options inp out mode <- execParser options
 
   (inFile, source) <- case inp of
     FileInput f -> do
@@ -65,5 +73,9 @@ main = do
         let llvm = unpack . ppllvm . codegenProgram $ sast
         let output = case out of
               FileOutput outFile -> outFile
-              DefaultOutput -> "out"
-        putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
+              DefaultOutput -> if mode == Binary then "out" else "out.ll"
+
+        case mode of
+          LLVM -> writeFile output llvm
+          Binary -> do
+            putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
