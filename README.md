@@ -4,6 +4,8 @@ A compiler for a subset of C written in Haskell.
 
 Inspired by [MicroC](https://blog.josephmorag.com/posts/mcc0/)
 
+Generates LLVM IR, uses Clang as a backend.
+
 ## Features
 
 Current:
@@ -15,13 +17,13 @@ Current:
 - Binary and unary operators via +, -, \*, /, %, ==, !=, ||, &&, !, >, >=, <, <=
 - Detailed syntax errors
 - Static analysis for bindings and types
+- Code generation for basic expressions and functions
 
 Future:
 
 - For loops
 - Pointer types
 - Structs
-- Code generation
 
 ## Resources used
 
