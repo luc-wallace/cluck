@@ -50,5 +50,21 @@ ghcup install cabal
 ```
 
 ```
-cabal run cluck <input file>.c
+cabal build
 ```
+
+Binary is located in ./dist-newstyle/build
+
+```
+./cluck <input file>.c
+```
+
+If no input file is provided, code can be entered directly via standard input.
+
+Use Ctrl + D to submit once typed.
+
+## Options
+
+`-o` - Specify output file
+
+`-S` - Output LLVM IR
