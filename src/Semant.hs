@@ -163,6 +163,11 @@ analyseStmt (ReturnStmt e) = do
       if rett == t
         then pure $ SReturnStmt (Just sExpr)
         else throwError $ TypeError rett t
+analyseStmt (DoWhileStmt stmt cond) = do
+  sStmt <- analyseStmt stmt
+  sCond@(t, _) <- analyseExpr cond
+  unless (t == Bool) $ throwError $ TypeError Bool t
+  pure $ SDoWhileStmt sStmt sCond
 analyseStmt _ = error "error: parse failed"
 
 analyseExpr :: Expr -> Semant SExpr

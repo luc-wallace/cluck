@@ -24,6 +24,9 @@ lexeme = L.lexeme sc
 symbol :: Text -> Parser Text
 symbol = L.symbol sc
 
+pWord :: Text -> Parser ()
+pWord w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
+
 integer :: Parser Integer
 integer = lexeme L.decimal
 
@@ -84,11 +87,11 @@ pIdent = label "identifier" $ do
 pBaseType :: Parser Type
 pBaseType =
   choice
-    [ Int <$ string "int",
-      Float <$ string "float",
-      Bool <$ string "bool",
-      Char <$ string "char",
-      Void <$ string "void"
+    [ Int <$ pWord "int",
+      Float <$ pWord "float",
+      Bool <$ pWord "bool",
+      Char <$ pWord "char",
+      Void <$ pWord "void"
     ]
 
 pType :: Parser Type
@@ -100,8 +103,7 @@ pType = do
 pVarDecl :: Parser Decl
 pVarDecl =
   VariableDecl
-    <$> pType
-    <* space1
+    <$> lexeme pType
     <*> lexeme pIdent
     <*> optional (symbol "=" *> lexeme pExpr)
     <* symbol ";"
@@ -112,8 +114,7 @@ pDecl = try pVarDecl <|> pFuncDecl
 pFuncDecl :: Parser Decl
 pFuncDecl =
   FunctionDecl
-    <$> pType
-    <* space1
+    <$> lexeme pType
     <*> lexeme pIdent
     <*> between (symbol "(") (symbol ")") (pFuncArg `sepBy` symbol ",")
     <*> (Just <$> lexeme pBlockStmt <|> symbol ";" *> pure Nothing)
@@ -143,6 +144,7 @@ pStmt =
       [ pBlockStmt,
         pReturnStmt,
         pIfStmt,
+        pDoWhileStmt,
         try pVarDeclStmt,
         try pVarAssignStmt,
         pExprStmt
@@ -155,7 +157,7 @@ pVarAssignStmt :: Parser Stmt
 pVarAssignStmt = VariableAssignStmt <$> lexeme pIdent <* symbol "=" <*> lexeme pExpr <* symbol ";"
 
 pReturnStmt :: Parser Stmt
-pReturnStmt = ReturnStmt <$ string "return" <*> optional (space1 *> lexeme pExpr) <* symbol ";"
+pReturnStmt = ReturnStmt <$ pWord "return" <*> optional (lexeme pExpr) <* symbol ";"
 
 pExprStmt :: Parser Stmt
 pExprStmt = ExprStmt <$> pExpr <* symbol ";"
@@ -164,7 +166,10 @@ pBlockStmt :: Parser Stmt
 pBlockStmt = BlockStmt <$> between (symbol "{") (symbol "}") (many pStmt)
 
 pIfStmt :: Parser Stmt
-pIfStmt = IfStmt <$ symbol "if" <*> pParens <*> pStmt <*> optional (symbol "else" *> pStmt)
+pIfStmt = IfStmt <$ pWord "if" <*> lexeme pParens <*> lexeme pStmt <*> optional (pWord "else" *> pStmt)
+
+pDoWhileStmt :: Parser Stmt
+pDoWhileStmt = DoWhileStmt <$ pWord "do" <*> lexeme pStmt <* pWord "while" <*> lexeme pParens <* symbol ";"
 
 pParens :: Parser Expr
 pParens = between (symbol "(") (symbol ")") pExpr
@@ -174,11 +179,11 @@ pTerm =
   lexeme $
     choice
       [ try pFloat,
+        try pBoolLiteral,
         pNum,
         try pFuncExpr,
         try pVarExpr,
         pParens,
-        pBoolLiteral,
         pStringLiteral,
         pCharLiteral
       ]

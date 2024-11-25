@@ -23,7 +23,8 @@ data Output
   | DefaultOutput
 
 data Mode
-  = LLVM
+  = AST
+  | LLVM
   | Binary
   deriving (Eq)
 
@@ -43,7 +44,7 @@ pOutput =
     <|> pure DefaultOutput
 
 pMode :: Parser Mode
-pMode = flag Binary LLVM (long "assemble" <> short 'S')
+pMode = flag Binary AST (long "ast" <> short 'A') <|> flag Binary LLVM (long "assemble" <> short 'S')
 
 options :: ParserInfo Options
 options =
@@ -67,15 +68,19 @@ main = do
 
   case runParser pProgram inFile source of
     Left err -> putStrLn (errorBundlePretty err) *> exitFailure
-    Right ast -> case analyseProgram ast of
-      Left err -> print err *> exitFailure
-      Right sast -> do
-        let llvm = unpack . ppllvm . codegenProgram $ sast
-        let output = case out of
-              FileOutput outFile -> outFile
-              DefaultOutput -> if mode == Binary then "out" else "out.ll"
+    Right ast ->
+      if mode == AST
+        then print ast
+        else case analyseProgram ast of
+          Left err -> print err *> exitFailure
+          Right sast -> do
+            let llvm = unpack . ppllvm . codegenProgram $ sast
+            let output = case out of
+                  FileOutput outFile -> outFile
+                  DefaultOutput -> if mode == Binary then "out" else "out.ll"
 
-        case mode of
-          LLVM -> writeFile output llvm
-          Binary -> do
-            putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
+            case mode of
+              LLVM -> writeFile output llvm
+              Binary -> do
+                putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
+              _ -> error "error: unreachable"

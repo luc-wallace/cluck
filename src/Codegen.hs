@@ -31,6 +31,7 @@ convType t = case t of
   Void -> pure AST.void
   Int -> pure AST.i32
   Char -> pure AST.i8
+  Bool -> pure AST.i1
   Float -> pure AST.double
   _ -> error $ "invalid type: " ++ show t
 
@@ -140,7 +141,13 @@ codegenStmt (SReturnStmt expr) = case expr of
   Just e -> do
     op <- codegenExpr e
     L.ret op
-codegenStmt (SBlockStmt stmts) = mapM_ codegenStmt stmts
+codegenStmt (SBlockStmt stmts) = do
+  let (l, r) = break isReturn stmts -- filter out unreachable statements after return
+  mapM_ codegenStmt (l ++ take 1 r)
+  where
+    isReturn :: SStmt -> Bool
+    isReturn (SReturnStmt _) = True
+    isReturn _ = False
 codegenStmt (SIfStmt cond t e) = mdo
   c <- codegenExpr cond
   L.condBr c thenBlock elseBlock
@@ -154,6 +161,16 @@ codegenStmt (SIfStmt cond t e) = mdo
   mkTerminator $ L.br mergeBlock
 
   mergeBlock <- L.block `L.named` "merge"
+  pure ()
+codegenStmt (SDoWhileStmt body cond) = mdo
+  L.br bodyBlock
+
+  bodyBlock <- L.block `L.named` "body"
+  codegenStmt body
+  c <- codegenExpr cond
+  mkTerminator $ L.condBr c bodyBlock endBlock
+
+  endBlock <- L.block `L.named` "end"
   pure ()
 codegenStmt (SVariableDeclStmt (SVariableDecl t ident expr)) = do
   ty <- convType t

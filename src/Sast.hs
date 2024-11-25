@@ -16,6 +16,7 @@ data SStmt
   | SBlockStmt [SStmt]
   | SExprStmt SExpr
   | SIfStmt SExpr SStmt SStmt
+  | SDoWhileStmt SStmt SExpr
   | SReturnStmt (Maybe SExpr)
   deriving (Show)
 

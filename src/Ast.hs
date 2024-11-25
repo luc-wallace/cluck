@@ -42,6 +42,7 @@ data Stmt
   | BlockStmt [Stmt]
   | ExprStmt Expr
   | IfStmt Expr Stmt (Maybe Stmt)
+  | DoWhileStmt Stmt Expr
   | ReturnStmt (Maybe Expr)
   deriving (Show)
 
