@@ -68,3 +68,7 @@ Use Ctrl + D to submit once typed.
 `-o` - Specify output file
 
 `-S` - Output LLVM IR
+
+# Examples
+
+Look in the [examples](examples) folder for some supported programs.
