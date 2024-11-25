@@ -37,25 +37,34 @@ data SemantError
   | UnaryOprtError Oprt Type
   | VoidError DeclKind Identifier
   | ReturnError Identifier Type
+  | ConstantError Identifier
 
 instance Show SemantError where
-  show (NameError d ident) = Text.printf "error: %s %s is not defined" (dKind d) ident
-  show (RedefinitionError d ident) = Text.printf "error: %s %s is redefined" (dKind d) ident
+  show (NameError d ident) = Text.printf "error: %s '%s' is not defined" (dKind d) ident
+  show (RedefinitionError d ident) = Text.printf "error: %s '%s' is redefined" (dKind d) ident
   show (TypeError t1 t2) = Text.printf "error: expected %s but got %s" (show t1) (show t2)
-  show (ArgumentError ident e g) = Text.printf "error: expected %d arguments in call to %s(...) but got %d" e ident g
-  show (BinaryOprtError op t1 t2) = Text.printf "error: operation \"%s\" is not possible for types %s and %s" (show op) (show t1) (show t2)
-  show (UnaryOprtError op t) = Text.printf "error: no instance of %s for operator %s" (show t) (show op)
+  show (ArgumentError ident e g) = Text.printf "error: expected %d arguments in call to '%s(...)' but got %d" e ident g
+  show (BinaryOprtError op t1 t2) = Text.printf "error: operation '%s' is not possible for types %s and %s" (show op) (show t1) (show t2)
+  show (UnaryOprtError op t) = Text.printf "error: no instance of %s for operator '%s'" (show t) (show op)
   show (VoidError d ident) = case d of
-    Function -> Text.printf "error: unexpected return statement in function %s(...) of type void" ident
-    Variable -> Text.printf "error: variable cannot have type void"
-  show (ReturnError ident Void) = Text.printf "error: void function %s(...) cannot return a value" ident
-  show (ReturnError ident _) = Text.printf "error: non-void function %s(...) does not return a value in all control paths" ident
+    Function -> Text.printf "error: unexpected return statement in function '%s(...)' of type void" ident
+    Variable -> Text.printf "error: variable '%s' cannot have type void" ident
+  show (ReturnError ident Void) = Text.printf "error: void function '%s(...)' cannot return a value" ident
+  show (ReturnError ident _) = Text.printf "error: non-void function '%s(...)' does not return a value in all control paths" ident
+  show (ConstantError ident) = Text.printf "error: global variable '%s' must have a constant value" ident
 
 isNumeric :: Type -> Bool
 isNumeric t = t `elem` [Int, Float, Char, Bool]
 
 isLogical :: Oprt -> Bool
 isLogical op = op `elem` [Not, And, Or, EqTo, NtEqTo, Gt, GtOrEqTo, Lt, LtOrEqTo]
+
+isConstant :: Expr -> Bool
+isConstant (IntLiteral _) = True
+isConstant (BoolLiteral _) = True
+isConstant (FloatLiteral _) = True
+isConstant (CharLiteral _) = True
+isConstant _ = False
 
 analyseProgram :: Program -> Either SemantError SProgram
 analyseProgram (Program decls) =
@@ -72,6 +81,7 @@ analyseDecl d@(VariableDecl t1 ident expr) = do
   sDecl <- case expr of
     Nothing -> pure $ SVariableDecl t1 ident Nothing
     (Just e) -> do
+      unless (isConstant e) $ throwError $ ConstantError ident
       sExpr@(t2, _) <- analyseExpr e
       if t1 == t2
         then pure $ SVariableDecl t1 ident (Just sExpr)

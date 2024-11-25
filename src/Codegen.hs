@@ -9,6 +9,8 @@ import Data.Maybe (fromJust)
 import Data.String.Conversions (cs)
 import qualified Data.Text.Encoding as TE
 import qualified LLVM.AST as AST hiding (function)
+import qualified LLVM.AST.Constant as C
+import qualified LLVM.AST.Float as F
 import qualified LLVM.AST.FloatingPointPredicate as FP
 import qualified LLVM.AST.IntegerPredicate as IP
 import qualified LLVM.AST.Type as AST
@@ -57,7 +59,6 @@ codegenDecl (SFunctionDecl t ident args b) = mdo
     mkArg (t', ident') = (,) <$> convType t' <*> pure (L.ParameterName (BS.toShort (TE.encodeUtf8 ident')))
     genBody :: [AST.Operand] -> Codegen ()
     genBody ops = do
-      
       _ <- L.block `L.named` "entry"
       mapM_ initParam $ zip args ops
       codegenStmt b
@@ -67,6 +68,25 @@ codegenDecl (SFunctionDecl t ident args b) = mdo
           addr <- L.alloca ty Nothing 0
           L.store addr 0 op
           modify $ \env -> env {operands = M.insert i addr (operands env)}
+codegenDecl (SVariableDecl t ident e) = do
+  let name = AST.mkName $ cs ident
+      val = case e of
+        Just (_, expr) -> case expr of
+          (SIntLiteral n) -> C.Int 32 $ fromIntegral n
+          (SFloatLiteral d) -> C.Float $ F.Double d
+          (SBoolLiteral b) -> C.Int 1 $ if b then 1 else 0
+          (SCharLiteral c) -> C.Int 8 $ (fromIntegral . fromEnum) c
+          _ -> error "error: semant failed"
+        Nothing -> case t of
+          Int -> C.Int 0 0
+          Float -> C.Float $ F.Double 0
+          Bool -> C.Int 0 0
+          Char -> C.Int 0 0
+          _ -> error "error: semant failed"
+
+  ty <- convType t
+  var <- L.global name ty val
+  modify $ \env -> env {operands = M.insert ident var (operands env)}
 
 codegenExpr :: SExpr -> Codegen AST.Operand
 codegenExpr (Int, SIntLiteral n) = pure $ L.int32 (fromIntegral n)
@@ -77,7 +97,7 @@ codegenExpr (_, SVariableExpr ident) = do
 codegenExpr (t, SFunctionExpr ident args) = do
   op <- gets (fromJust . M.lookup ident . operands)
   args' <- mapM codegenExpr args
-  L.call op $ map (, []) args'
+  L.call op $ map (,[]) args'
 codegenExpr (Bool, SBoolLiteral b) = pure $ L.bit $ if b then 1 else 0
 codegenExpr (Char, SCharLiteral c) = pure $ L.int8 $ fromIntegral $ fromEnum c
 codegenExpr (_, SBinaryOp op lex rex) = do
