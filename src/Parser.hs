@@ -144,8 +144,8 @@ pStmt =
         pReturnStmt,
         pIfStmt,
         pDoWhileStmt,
-        try pVarDeclStmt,
         try pVarAssignStmt,
+        pVarDeclStmt,
         pExprStmt
       ]
 

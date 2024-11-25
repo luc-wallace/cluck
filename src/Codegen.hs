@@ -20,8 +20,6 @@ import qualified LLVM.IRBuilder.Module as L
 import qualified LLVM.IRBuilder.Monad as L
 import Sast
 
--- TODO: function arguments
-
 newtype Env = Env {operands :: Map Identifier AST.Operand}
 
 type LLVM = L.ModuleBuilderT (State Env)
