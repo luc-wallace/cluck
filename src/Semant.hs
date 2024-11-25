@@ -166,7 +166,8 @@ analyseStmt (ReturnStmt e) = do
 analyseStmt _ = error "error: parse failed"
 
 analyseExpr :: Expr -> Semant SExpr
-analyseExpr (NumberLiteral n) = pure (Int, SNumberLiteral n)
+analyseExpr (IntLiteral n) = pure (Int, SIntLiteral n)
+analyseExpr (FloatLiteral n) = pure (Float, SFloatLiteral n)
 analyseExpr (CharLiteral c) = pure (Char, SCharLiteral c)
 analyseExpr (BoolLiteral b) = pure (Bool, SBoolLiteral b)
 -- analyseExpr (StringLiteral s) = pure (String, SCharLiteral s)
@@ -208,5 +209,6 @@ analyseExpr (UnaryOp op expr) = do
   case op of
     Not -> if t == Bool then pure (Bool, SUnaryOp Not sExpr) else throwError $ UnaryOprtError op t
     Neg -> if isNumeric t then pure (t, SUnaryOp Neg sExpr) else throwError $ UnaryOprtError op t
+    Ref -> pure (Pointer t, SUnaryOp Ref sExpr)
     _ -> error $ "error: invalid unary operator " ++ show op
 analyseExpr expr = error $ "error: expression not implemented " ++ show expr

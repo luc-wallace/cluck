@@ -24,7 +24,8 @@ type SExpr = (Type, SExpr')
 data SExpr'
   = SCharLiteral Char
   | SStringLiteral Text
-  | SNumberLiteral Double
+  | SIntLiteral Int
+  | SFloatLiteral Double
   | SBoolLiteral Bool
   | SVariableExpr Identifier
   | SFunctionExpr Identifier [SExpr]

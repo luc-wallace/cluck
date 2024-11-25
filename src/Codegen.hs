@@ -6,7 +6,9 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import Data.String.Conversions (cs)
+import qualified GHC.Float as L
 import qualified LLVM.AST as AST hiding (function)
+import qualified LLVM.AST.Constant as L
 import qualified LLVM.AST.FloatingPointPredicate as FP
 import qualified LLVM.AST.IntegerPredicate as IP
 import qualified LLVM.AST.Type as AST
@@ -27,12 +29,9 @@ type Codegen = L.IRBuilderT LLVM
 convType :: MonadState Env m => Type -> m AST.Type
 convType t = case t of
   Void -> pure AST.void
-  Short -> pure AST.i16
   Int -> pure AST.i32
-  Long -> pure AST.i64
   Char -> pure AST.i8
-  Float -> pure AST.float
-  Double -> pure AST.double
+  Float -> pure AST.double
   _ -> error $ "invalid type: " ++ show t
 
 registerOperand :: MonadState Env m => Identifier -> AST.Operand -> m ()
@@ -57,9 +56,8 @@ codegenDecl (SFunctionDecl t ident args b) = mdo
       codegenStmt b
 
 codegenExpr :: SExpr -> Codegen AST.Operand
-codegenExpr (Int, SNumberLiteral n) = pure $ L.int32 $ round n
-codegenExpr (Long, SNumberLiteral n) = pure $ L.int64 $ round n
-codegenExpr (Float, SNumberLiteral n) = pure $ L.double n
+codegenExpr (Int, SIntLiteral n) = pure $ L.int32 (fromIntegral n)
+codegenExpr (Float, SFloatLiteral n) = pure $ L.double n
 codegenExpr (_, SVariableExpr ident) = do
   op <- gets (fromJust . M.lookup ident . operands)
   L.load op 0
@@ -131,6 +129,7 @@ codegenExpr (t, SUnaryOp op ex) = do
     Not -> case t of
       Bool -> L.xor ex' (L.bit 1)
       _ -> error "internal error: semant failed"
+    Ref -> codegenExpr ex
     _ -> error "internal error: semant failed"
 codegenExpr _ = error "internal error: semant failed"
 

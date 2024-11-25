@@ -10,39 +10,19 @@ newtype Program = Program [Decl] deriving (Show)
 
 data Type
   = Char
-  | SignedChar
-  | UnsignedChar
-  | Short
   | Bool
-  | UnsignedShort
   | Int
-  | UnsignedInt
-  | Long
-  | UnsignedLong
   | Float
-  | Double
-  | LongDouble
   | Void
-  | Custom Identifier
   | Pointer Type
   deriving (Eq)
 
 instance Show Type where
   show Char = "char"
   show Bool = "bool"
-  show SignedChar = "signed char"
-  show UnsignedChar = "unsigned char"
-  show Short = "short"
-  show UnsignedShort = "unsigned short"
   show Int = "int"
-  show UnsignedInt = "unsigned int"
-  show Long = "long"
-  show UnsignedLong = "unsigned long"
   show Float = "float"
-  show Double = "double"
-  show LongDouble = "long double"
   show Void = "void"
-  show (Custom t) = show t
   show (Pointer t) = show t ++ "*"
 
 data Decl
@@ -68,7 +48,8 @@ data Stmt
 data Expr
   = CharLiteral Char
   | StringLiteral Text
-  | NumberLiteral Double
+  | IntLiteral Int
+  | FloatLiteral Double
   | BoolLiteral Bool
   | VariableExpr Identifier
   | FunctionExpr Identifier [Expr]
@@ -92,6 +73,7 @@ data Oprt
   | GtOrEqTo
   | Lt
   | LtOrEqTo
+  | Ref
   deriving (Eq)
 
 instance Show Oprt where
@@ -110,6 +92,7 @@ instance Show Oprt where
   show GtOrEqTo = ">="
   show Lt = "<"
   show LtOrEqTo = "<="
+  show Ref = "&"
 
 genHeader :: Program -> String
 genHeader (Program p) = intercalate "\n" $ map showDecl p

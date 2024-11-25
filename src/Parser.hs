@@ -39,9 +39,6 @@ pBoolLiteral = BoolLiteral <$> (True <$ string "true" <|> False <$ string "false
 nonDigit :: Parser Char
 nonDigit = alphaNumChar <|> char '_'
 
-pOptionalInt :: Parser (Maybe ())
-pOptionalInt = optional (try (space1 <* string "int") <|> pure ())
-
 keywords :: [Text]
 keywords =
   [ "auto",
@@ -78,30 +75,27 @@ keywords =
     "while"
   ]
 
-pType :: Parser Type
-pType =
-  choice
-    [ try (Void <$ string "void"),
-      try (LongDouble <$ string "long" <* space1 <* string "double"),
-      try (Double <$ string "double"),
-      try (Float <$ string "float"),
-      try (Char <$ string "char"),
-      try (UnsignedInt <$ string "unsigned" <* space1 <* string "int"),
-      try (UnsignedChar <$ string "unsigned" <* space1 <* string "char"),
-      try (SignedChar <$ string "signed" <* space1 <* string "char"),
-      try (Int <$ string "int"),
-      try (Long <$ string "long" <* pOptionalInt),
-      try (Short <$ string "short" <* pOptionalInt),
-      try (UnsignedShort <$ string "unsigned" <* space1 <* string "short" <* pOptionalInt),
-      try (UnsignedLong <$ string "unsigned" <* space1 <* string "long" <* pOptionalInt),
-      Custom <$> pIdent
-    ]
-
 pIdent :: Parser Text
 pIdent = label "identifier" $ do
   ident <- (:) <$> letterChar <*> many nonDigit
   when (pack ident `elem` keywords) $ fail "identifier cannot be keyword"
   return $ pack ident
+
+pBaseType :: Parser Type
+pBaseType =
+  choice
+    [ Int <$ string "int",
+      Float <$ string "float",
+      Bool <$ string "bool",
+      Char <$ string "char",
+      Void <$ string "void"
+    ]
+
+pType :: Parser Type
+pType = do
+  base <- pBaseType
+  pointers <- many $ try $ space *> string "*"
+  return $ foldr (const Pointer) base pointers
 
 pVarDecl :: Parser Decl
 pVarDecl =
@@ -131,7 +125,10 @@ pExpr :: Parser Expr
 pExpr = label "expression" (makeExprParser pTerm operatorTable)
 
 pNum :: Parser Expr
-pNum = NumberLiteral <$> try (L.decimal <|> L.float)
+pNum = IntLiteral <$> L.decimal
+
+pFloat :: Parser Expr
+pFloat = FloatLiteral <$> L.float
 
 pVarExpr :: Parser Expr
 pVarExpr = VariableExpr <$> pIdent
@@ -176,7 +173,8 @@ pTerm :: Parser Expr
 pTerm =
   lexeme $
     choice
-      [ pNum,
+      [ try pFloat,
+        pNum,
         try pFuncExpr,
         try pVarExpr,
         pParens,
@@ -187,7 +185,8 @@ pTerm =
 
 operatorTable :: [[Operator Parser Expr]]
 operatorTable =
-  [ [ prefix "!" $ UnaryOp Not,
+  [ [ prefix "&" $ UnaryOp Ref,
+      prefix "!" $ UnaryOp Not,
       prefix "-" $ UnaryOp Neg,
       prefix "+" id
     ],
@@ -218,4 +217,4 @@ prefix name f = Prefix (f <$ symbol name)
 postfix name f = Postfix (f <$ symbol name)
 
 pProgram :: Parser Program
-pProgram = Program <$ space <*> many (lexeme pDecl) <* eof
+pProgram = Program <$ lexeme space <*> many (lexeme pDecl) <* eof
