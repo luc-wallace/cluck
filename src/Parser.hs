@@ -102,8 +102,7 @@ pType = do
 
 pVarDecl :: Parser Decl
 pVarDecl =
-  VariableDecl
-    <$> lexeme pType
+  VariableDecl <$> lexeme pType
     <*> lexeme pIdent
     <*> optional (symbol "=" *> lexeme pExpr)
     <* symbol ";"
@@ -151,7 +150,12 @@ pStmt =
       ]
 
 pVarDeclStmt :: Parser Stmt
-pVarDeclStmt = VariableDeclStmt <$> pVarDecl
+pVarDeclStmt =
+  VariableDeclStmt
+    <$> lexeme pType
+    <*> lexeme pIdent
+    <*> optional (symbol "=" *> lexeme pExpr)
+    <* symbol ";"
 
 pVarAssignStmt :: Parser Stmt
 pVarAssignStmt = VariableAssignStmt <$> lexeme pIdent <* symbol "=" <*> lexeme pExpr <* symbol ";"
@@ -204,10 +208,10 @@ operatorTable =
     ],
     [ binary "==" $ BinaryOp EqTo,
       binary "!=" $ BinaryOp NtEqTo,
-      binary ">" $ BinaryOp Gt,
       binary ">=" $ BinaryOp GtOrEqTo,
-      binary "<" $ BinaryOp Lt,
-      binary "<=" $ BinaryOp LtOrEqTo
+      binary ">" $ BinaryOp Gt,
+      binary "<=" $ BinaryOp LtOrEqTo,
+      binary "<" $ BinaryOp Lt
     ],
     [ binary "&&" $ BinaryOp And,
       binary "||" $ BinaryOp Or

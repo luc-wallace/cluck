@@ -37,7 +37,7 @@ declTy (FunctionDecl t _ _ _) = t
 type Arg = (Type, Identifier)
 
 data Stmt
-  = VariableDeclStmt Decl
+  = VariableDeclStmt Type Identifier (Maybe Expr)
   | VariableAssignStmt Identifier Expr
   | BlockStmt [Stmt]
   | ExprStmt Expr

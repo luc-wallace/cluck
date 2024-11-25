@@ -2,13 +2,13 @@ module Codegen where
 
 import Ast
 import Control.Monad.State
+import qualified Data.ByteString.Short as BS
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import Data.String.Conversions (cs)
-import qualified GHC.Float as L
+import qualified Data.Text.Encoding as TE
 import qualified LLVM.AST as AST hiding (function)
-import qualified LLVM.AST.Constant as L
 import qualified LLVM.AST.FloatingPointPredicate as FP
 import qualified LLVM.AST.IntegerPredicate as IP
 import qualified LLVM.AST.Type as AST
@@ -46,15 +46,27 @@ codegenProgram (SProgram decls) =
 codegenDecl :: SDecl -> LLVM ()
 codegenDecl (SFunctionDecl t ident args b) = mdo
   modify $ \env -> env {operands = M.insert ident function (operands env)} -- add memory address to env
-  rett <- convType t
-  function <- L.function (AST.mkName $ cs ident) [] rett genBody
-  pure ()
+  oldState <- get
+
+  function <- do
+    rett <- convType t
+    args' <- mapM mkArg args
+    L.function (AST.mkName $ cs ident) args' rett genBody
+  put oldState
   where
-    mkArg (t', ident') = (,) <$> convType t' *> pure (L.ParameterName (cs ident'))
+    mkArg (t', ident') = (,) <$> convType t' <*> pure (L.ParameterName (BS.toShort (TE.encodeUtf8 ident')))
     genBody :: [AST.Operand] -> Codegen ()
     genBody ops = do
+      
       _ <- L.block `L.named` "entry"
+      mapM_ initParam $ zip args ops
       codegenStmt b
+      where
+        initParam ((t', i), op) = do
+          ty <- convType t'
+          addr <- L.alloca ty Nothing 0
+          L.store addr 0 op
+          modify $ \env -> env {operands = M.insert i addr (operands env)}
 
 codegenExpr :: SExpr -> Codegen AST.Operand
 codegenExpr (Int, SIntLiteral n) = pure $ L.int32 (fromIntegral n)
@@ -64,10 +76,11 @@ codegenExpr (_, SVariableExpr ident) = do
   L.load op 0
 codegenExpr (t, SFunctionExpr ident args) = do
   op <- gets (fromJust . M.lookup ident . operands)
-  L.call op []
+  args' <- mapM codegenExpr args
+  L.call op $ map (, []) args'
 codegenExpr (Bool, SBoolLiteral b) = pure $ L.bit $ if b then 1 else 0
 codegenExpr (Char, SCharLiteral c) = pure $ L.int8 $ fromIntegral $ fromEnum c
-codegenExpr (t, SBinaryOp op lex rex) = do
+codegenExpr (_, SBinaryOp op lex rex) = do
   lhs <- codegenExpr lex
   rhs <- codegenExpr rex
   case op of

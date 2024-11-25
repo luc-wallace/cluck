@@ -115,7 +115,7 @@ analyseStmt (BlockStmt stmts) = do
   sstmts <- mapM analyseStmt stmts
   put oldState
   pure $ SBlockStmt sstmts
-analyseStmt (VariableDeclStmt d@(VariableDecl t1 ident expr)) = do
+analyseStmt (VariableDeclStmt t1 ident expr) = do
   when (t1 == Void) $ throwError $ VoidError Variable ident
   vars' <- gets vars
   case M.lookup ident vars' of
@@ -124,7 +124,7 @@ analyseStmt (VariableDeclStmt d@(VariableDecl t1 ident expr)) = do
         sExpr@(t2, _) <- analyseExpr e
         if t1 == t2
           then do
-            modify $ \env -> env {vars = M.insert ident d vars'}
+            modify $ \env -> env {vars = M.insert ident (VariableDecl t1 ident expr) vars'}
             pure $ SVariableDeclStmt (SVariableDecl t1 ident (Just sExpr))
           else throwError $ TypeError t1 t2
       Nothing -> pure $ SVariableDeclStmt (SVariableDecl t1 ident Nothing)

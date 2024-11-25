@@ -82,7 +82,8 @@ executable cluck
                       mtl,
                       string-conversions,
                       optparse-applicative,
-                      process
+                      process,
+                      bytestring >= 0.10 && < 0.11
     -- Directories containing source files.
     hs-source-dirs:   src
 
@@ -92,4 +93,5 @@ executable cluck
     default-extensions: OverloadedStrings,
                         ConstraintKinds,
                         FlexibleContexts,
-                        RecursiveDo
+                        RecursiveDo,
+                        TupleSections
