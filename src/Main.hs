@@ -8,6 +8,7 @@ import LLVM.Pretty (ppllvm)
 import Options.Applicative
 import Parser (pProgram)
 import Semant (analyseProgram)
+import System.Directory (removeFile)
 import System.Exit
 import System.Process
 import Text.Megaparsec
@@ -82,5 +83,8 @@ main = do
             case mode of
               LLVM -> writeFile output llvm
               Binary -> do
-                putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
+                writeFile "temp.ll" llvm
+                -- putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
+                putStr =<< readProcess "clang-14" (["-w", "-lm", "temp.ll", "runtime.c", "-O2", "-o"] ++ [output]) llvm
+                removeFile "temp.ll"
               _ -> error "error: unreachable"

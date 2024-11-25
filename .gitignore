@@ -1,4 +1,5 @@
 *.c
+!runtime.c
 dist-newstyle
 *.o
 *.ll
