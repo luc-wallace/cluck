@@ -69,12 +69,12 @@ main = do
 
   case runParser pProgram inFile source of
     Left err -> putStrLn (errorBundlePretty err) *> exitFailure
-    Right ast ->
-      if mode == AST
-        then print ast
-        else case analyseProgram ast of
-          Left err -> print err *> exitFailure
-          Right sast -> do
+    Right ast -> case analyseProgram ast of
+      Left err -> print err *> exitFailure
+      Right sast ->
+        case mode of
+          AST -> print sast
+          _ -> do
             let llvm = unpack . ppllvm . codegenProgram $ sast
             let output = case out of
                   FileOutput outFile -> outFile
