@@ -144,6 +144,8 @@ pStmt =
         pReturnStmt,
         pIfStmt,
         pDoWhileStmt,
+        pForStmt,
+        pWhileStmt,
         pVarDeclStmt,
         pExprStmt
       ]
@@ -170,6 +172,21 @@ pIfStmt = IfStmt <$ pWord "if" <*> lexeme pParens <*> lexeme pStmt <*> optional 
 
 pDoWhileStmt :: Parser Stmt
 pDoWhileStmt = DoWhileStmt <$ pWord "do" <*> lexeme pStmt <* pWord "while" <*> lexeme pParens <* symbol ";"
+
+pForStmt :: Parser Stmt
+pForStmt = do
+  pWord "for"
+  (e1, e2, e3) <- between (symbol "(") (symbol ")") $ do
+    e1 <- lexeme pExpr
+    _ <- symbol ";"
+    e2 <- lexeme pExpr
+    _ <- symbol ";"
+    e3 <- lexeme pExpr
+    return (e1, e2, e3)
+  ForStmt e1 e2 e3 <$> lexeme pStmt
+
+pWhileStmt :: Parser Stmt
+pWhileStmt = WhileStmt <$ pWord "while" <*> lexeme pParens <*> pStmt
 
 pParens :: Parser Expr
 pParens = between (symbol "(") (symbol ")") pExpr

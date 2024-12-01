@@ -11,7 +11,7 @@ Generates LLVM IR, uses Clang as a backend.
 Current:
 
 - Variable and function declarations
-- Return, if and do-while statements
+- Return, if, for, while and do-while statements
 - Expressions and precedence
 - Number, char and float literals
 - Binary and unary operators (not all implemented)
@@ -22,7 +22,6 @@ Current:
 
 Future:
 
-- For/while loops
 - Arrays
 - Structs
 

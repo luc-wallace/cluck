@@ -42,6 +42,8 @@ data Stmt
   | ExprStmt Expr
   | IfStmt Expr Stmt (Maybe Stmt)
   | DoWhileStmt Stmt Expr
+  | ForStmt Expr Expr Expr Stmt
+  | WhileStmt Expr Stmt
   | ReturnStmt (Maybe Expr)
   deriving (Show)
 

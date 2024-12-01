@@ -179,6 +179,8 @@ analyseStmt (DoWhileStmt stmt cond) = do
   sCond@(t, _) <- analyseExpr cond
   unless (t == Bool) $ throwError $ TypeError Bool t
   pure $ SDoWhileStmt sStmt sCond
+analyseStmt (ForStmt e1 e2 e3 stmt) = analyseStmt $ BlockStmt [ExprStmt e1, DoWhileStmt (BlockStmt [stmt, ExprStmt e3]) e2]
+analyseStmt (WhileStmt cond stmt) = analyseStmt $ IfStmt cond (DoWhileStmt stmt cond) Nothing
 
 analyseExpr :: Expr -> Semant SExpr
 analyseExpr (IntLiteral n) = pure (Int, SIntLiteral n)
