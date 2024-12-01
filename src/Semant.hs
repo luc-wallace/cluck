@@ -140,15 +140,17 @@ analyseStmt (VariableDeclStmt t1 ident expr) = do
   when (t1 == Void) $ throwError $ VoidError Variable ident
   vars' <- gets vars
   case M.lookup ident vars' of
-    Nothing -> case expr of
-      Just e -> do
-        sExpr@(t2, _) <- analyseExpr e
-        if t1 == t2
-          then do
-            modify $ \env -> env {vars = M.insert ident (VariableDecl t1 ident expr) vars'}
-            pure $ SVariableDeclStmt t1 ident (Just sExpr)
-          else throwError $ TypeError t1 t2
-      Nothing -> pure $ SVariableDeclStmt t1 ident Nothing
+    Nothing -> do
+      modify $ \env -> env {vars = M.insert ident (VariableDecl t1 ident expr) vars'}
+      case expr of
+        Just e -> do
+          sExpr@(t2, _) <- analyseExpr e
+          if t1 == t2
+            then do
+              modify $ \env -> env {vars = M.insert ident (VariableDecl t1 ident expr) vars'}
+              pure $ SVariableDeclStmt t1 ident (Just sExpr)
+            else throwError $ TypeError t1 t2
+        Nothing -> pure $ SVariableDeclStmt t1 ident Nothing
     Just _ -> throwError $ RedefinitionError Variable ident
 analyseStmt (ExprStmt expr) = do
   sExpr <- analyseExpr expr
