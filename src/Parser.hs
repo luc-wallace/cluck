@@ -144,7 +144,6 @@ pStmt =
         pReturnStmt,
         pIfStmt,
         pDoWhileStmt,
-        try pVarAssignStmt,
         pVarDeclStmt,
         pExprStmt
       ]
@@ -156,9 +155,6 @@ pVarDeclStmt =
     <*> lexeme pIdent
     <*> optional (symbol "=" *> lexeme pExpr)
     <* symbol ";"
-
-pVarAssignStmt :: Parser Stmt
-pVarAssignStmt = VariableAssignStmt <$> lexeme pIdent <* symbol "=" <*> lexeme pExpr <* symbol ";"
 
 pReturnStmt :: Parser Stmt
 pReturnStmt = ReturnStmt <$ pWord "return" <*> optional (lexeme pExpr) <* symbol ";"
@@ -178,11 +174,15 @@ pDoWhileStmt = DoWhileStmt <$ pWord "do" <*> lexeme pStmt <* pWord "while" <*> l
 pParens :: Parser Expr
 pParens = between (symbol "(") (symbol ")") pExpr
 
+pCast :: Parser Expr
+pCast = Cast <$> lexeme (between (symbol "(") (symbol ")") pType) <*> pExpr
+
 pTerm :: Parser Expr
 pTerm =
   lexeme $
     choice
-      [ try pFloat,
+      [ try pCast,
+        try pFloat,
         try pBoolLiteral,
         pNum,
         try pFuncExpr,
@@ -194,7 +194,8 @@ pTerm =
 
 operatorTable :: [[Operator Parser Expr]]
 operatorTable =
-  [ [ prefix "&" $ UnaryOp Ref,
+  [ [ prefix "*" $ UnaryOp Deref,
+      prefix "&" $ UnaryOp Ref,
       prefix "!" $ UnaryOp Not,
       prefix "-" $ UnaryOp Neg,
       prefix "+" id
@@ -215,6 +216,8 @@ operatorTable =
     ],
     [ binary "&&" $ BinaryOp And,
       binary "||" $ BinaryOp Or
+    ],
+    [ binary "=" $ BinaryOp Assign
     ]
   ]
 

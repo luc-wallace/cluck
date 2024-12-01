@@ -38,7 +38,6 @@ type Arg = (Type, Identifier)
 
 data Stmt
   = VariableDeclStmt Type Identifier (Maybe Expr)
-  | VariableAssignStmt Identifier Expr
   | BlockStmt [Stmt]
   | ExprStmt Expr
   | IfStmt Expr Stmt (Maybe Stmt)
@@ -56,6 +55,7 @@ data Expr
   | FunctionExpr Identifier [Expr]
   | UnaryOp Oprt Expr
   | BinaryOp Oprt Expr Expr
+  | Cast Type Expr
   deriving (Show, Eq)
 
 data Oprt
@@ -75,6 +75,8 @@ data Oprt
   | Lt
   | LtOrEqTo
   | Ref
+  | Deref
+  | Assign
   deriving (Eq)
 
 instance Show Oprt where
@@ -93,7 +95,9 @@ instance Show Oprt where
   show GtOrEqTo = ">="
   show Lt = "<"
   show LtOrEqTo = "<="
+  show Assign = "="
   show Ref = "&"
+  show Deref = "*"
 
 genHeader :: Program -> String
 genHeader (Program p) = intercalate "\n" $ map showDecl p

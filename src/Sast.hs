@@ -11,8 +11,7 @@ data SDecl
   deriving (Show)
 
 data SStmt
-  = SVariableDeclStmt SDecl
-  | SVariableAssignStmt Identifier SExpr
+  = SVariableDeclStmt Type Identifier (Maybe SExpr)
   | SBlockStmt [SStmt]
   | SExprStmt SExpr
   | SIfStmt SExpr SStmt SStmt
@@ -22,14 +21,21 @@ data SStmt
 
 type SExpr = (Type, SExpr')
 
+data LVal
+  = LVar Identifier
+  | LDeref SExpr
+  deriving (Show, Eq)
+
 data SExpr'
   = SCharLiteral Char
   | SStringLiteral Text
   | SIntLiteral Int
   | SFloatLiteral Double
   | SBoolLiteral Bool
-  | SVariableExpr Identifier
   | SFunctionExpr Identifier [SExpr]
   | SUnaryOp Oprt SExpr
+  | SAssign LVal SExpr
+  | LVal LVal
+  | SRef LVal
   | SBinaryOp Oprt SExpr SExpr
   deriving (Show, Eq)

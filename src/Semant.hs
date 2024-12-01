@@ -7,6 +7,7 @@ import Control.Monad.State
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Text (Text)
+import GHC.Float (int2Double)
 import Sast
 import qualified Text.Printf as Text
 
@@ -38,6 +39,9 @@ data SemantError
   | VoidError DeclKind Identifier
   | ReturnError Identifier Type
   | ConstantError Identifier
+  | CastError Type Type
+  | RefError
+  | AssignError
 
 instance Show SemantError where
   show (NameError d ident) = Text.printf "error: %s '%s' is not defined" (dKind d) ident
@@ -52,12 +56,19 @@ instance Show SemantError where
   show (ReturnError ident Void) = Text.printf "error: void function '%s(...)' cannot return a value" ident
   show (ReturnError ident _) = Text.printf "error: non-void function '%s(...)' does not return a value in all control paths" ident
   show (ConstantError ident) = Text.printf "error: global variable '%s' must have a constant value" ident
+  show (CastError t1 t2) = Text.printf "error: unable to type cast %s to %s" (show t2) (show t1)
+  show RefError = "error: reference and dereference operator may only be used with a variable expression"
+  show AssignError = "error: can only assign to variable or pointer dereferences"
 
 isNumeric :: Type -> Bool
 isNumeric t = t `elem` [Int, Float, Char, Bool]
 
 isLogical :: Oprt -> Bool
 isLogical op = op `elem` [Not, And, Or, EqTo, NtEqTo, Gt, GtOrEqTo, Lt, LtOrEqTo]
+
+unwrapPointer :: Type -> Semant Type
+unwrapPointer (Pointer t) = pure t
+unwrapPointer t = throwError $ TypeError (Pointer t) t
 
 isConstant :: Expr -> Bool
 isConstant (IntLiteral _) = True
@@ -70,7 +81,7 @@ analyseProgram :: Program -> Either SemantError SProgram
 analyseProgram (Program decls) =
   evalState (runExceptT (SProgram <$> mapM analyseDecl decls)) baseEnv
   where
-    baseEnv = Env {vars = M.empty, funcs = M.empty, curFunc = ("", Void)}
+    baseEnv = Env {vars = M.empty, funcs = M.fromList [("printint", FunctionDecl Int "printint" [(Int, "")] Nothing)], curFunc = ("", Void)}
 
 analyseDecl :: Decl -> Semant SDecl
 analyseDecl d@(VariableDecl t1 ident expr) = do
@@ -135,20 +146,10 @@ analyseStmt (VariableDeclStmt t1 ident expr) = do
         if t1 == t2
           then do
             modify $ \env -> env {vars = M.insert ident (VariableDecl t1 ident expr) vars'}
-            pure $ SVariableDeclStmt (SVariableDecl t1 ident (Just sExpr))
+            pure $ SVariableDeclStmt t1 ident (Just sExpr)
           else throwError $ TypeError t1 t2
-      Nothing -> pure $ SVariableDeclStmt (SVariableDecl t1 ident Nothing)
+      Nothing -> pure $ SVariableDeclStmt t1 ident Nothing
     Just _ -> throwError $ RedefinitionError Variable ident
-analyseStmt (VariableAssignStmt ident expr) = do
-  vars' <- gets vars
-  case M.lookup ident vars' of
-    Nothing -> throwError $ NameError Variable ident
-    Just (VariableDecl t1 _ _) -> do
-      sExpr@(t2, _) <- analyseExpr expr
-      if t1 == t2
-        then pure $ SVariableAssignStmt ident sExpr
-        else throwError $ TypeError t1 t2
-    _ -> error "parse failed"
 analyseStmt (ExprStmt expr) = do
   sExpr <- analyseExpr expr
   pure $ SExprStmt sExpr
@@ -178,7 +179,6 @@ analyseStmt (DoWhileStmt stmt cond) = do
   sCond@(t, _) <- analyseExpr cond
   unless (t == Bool) $ throwError $ TypeError Bool t
   pure $ SDoWhileStmt sStmt sCond
-analyseStmt _ = error "error: parse failed"
 
 analyseExpr :: Expr -> Semant SExpr
 analyseExpr (IntLiteral n) = pure (Int, SIntLiteral n)
@@ -190,7 +190,7 @@ analyseExpr (VariableExpr ident) = do
   vars' <- gets vars
   case M.lookup ident vars' of
     Nothing -> throwError $ NameError Variable ident
-    Just d -> pure (declTy d, SVariableExpr ident)
+    Just d -> pure (declTy d, LVal (LVar ident))
 analyseExpr (FunctionExpr ident args) = do
   funcs' <- gets funcs
   case M.lookup ident funcs' of
@@ -211,6 +211,13 @@ analyseExpr (FunctionExpr ident args) = do
       if t1 == t2
         then pure e
         else throwError $ TypeError t1 t2
+analyseExpr (BinaryOp Assign e1 e2) = do
+  (t1, e) <- analyseExpr e1
+  rhs@(t2, _) <- analyseExpr e2
+  unless (t1 == t2) $ throwError $ TypeError t1 t2
+  case e of
+    LVal l -> pure (t1, SAssign l rhs)
+    _ -> throwError AssignError
 analyseExpr (BinaryOp op e1 e2) = do
   lhs@(t1, _) <- analyseExpr e1
   rhs@(t2, _) <- analyseExpr e2
@@ -220,10 +227,25 @@ analyseExpr (BinaryOp op e1 e2) = do
     then pure (Bool, SBinaryOp op lhs rhs)
     else pure (t1, SBinaryOp op lhs rhs)
 analyseExpr (UnaryOp op expr) = do
-  sExpr@(t, _) <- analyseExpr expr
+  sExpr@(t, e) <- analyseExpr expr
   case op of
     Not -> if t == Bool then pure (Bool, SUnaryOp Not sExpr) else throwError $ UnaryOprtError op t
     Neg -> if isNumeric t then pure (t, SUnaryOp Neg sExpr) else throwError $ UnaryOprtError op t
-    Ref -> pure (Pointer t, SUnaryOp Ref sExpr)
+    Ref -> case e of
+      LVal l -> pure (Pointer t, SRef l)
+      _ -> throwError RefError
+    Deref -> do
+      ty <- unwrapPointer t
+      pure (ty, LVal $ LDeref sExpr)
     _ -> error $ "error: invalid unary operator " ++ show op
+analyseExpr (Cast t1 expr) = do
+  sExpr@(t2, _) <- analyseExpr expr
+  if t1 == t2
+    then pure sExpr
+    else case (t1, expr) of
+      (Float, IntLiteral n) -> pure (Float, SFloatLiteral $ int2Double n)
+      (Int, FloatLiteral n) -> pure (Int, SIntLiteral $ truncate n)
+      (Int, CharLiteral c) -> pure (Int, SIntLiteral $ fromEnum c)
+      (Char, IntLiteral n) -> pure (Char, SCharLiteral $ toEnum n)
+      _ -> throwError $ CastError t1 t2
 analyseExpr expr = error $ "error: expression not implemented " ++ show expr

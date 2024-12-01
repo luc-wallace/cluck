@@ -11,18 +11,19 @@ Generates LLVM IR, uses Clang as a backend.
 Current:
 
 - Variable and function declarations
-- Return, if and block statements
+- Return, if and do-while statements
 - Expressions and precedence
-- Number, char and string literals
-- Binary and unary operators via +, -, \*, /, %, ==, !=, ||, &&, !, >, >=, <, <=
+- Number, char and float literals
+- Binary and unary operators (not all implemented)
 - Detailed syntax errors
 - Static analysis for bindings and types
-- Code generation for basic expressions and functions
+- Code generation for expressions and functions
+- Pointer types
 
 Future:
 
-- For loops
-- Pointer types
+- For/while loops
+- Arrays
 - Structs
 
 ## Resources used
