@@ -40,8 +40,7 @@ data SemantError
   | ReturnError Identifier Type
   | ConstantError Identifier
   | CastError Type Type
-  | RefError
-  | AssignError
+  | LValError Oprt
 
 instance Show SemantError where
   show (NameError d ident) = Text.printf "error: %s '%s' is not defined" (dKind d) ident
@@ -57,8 +56,7 @@ instance Show SemantError where
   show (ReturnError ident _) = Text.printf "error: non-void function '%s(...)' does not return a value in all control paths" ident
   show (ConstantError ident) = Text.printf "error: global variable '%s' must have a constant value" ident
   show (CastError t1 t2) = Text.printf "error: unable to type cast %s to %s" (show t2) (show t1)
-  show RefError = "error: reference and dereference operator may only be used with a variable expression"
-  show AssignError = "error: can only assign to variable or pointer dereferences"
+  show (LValError op) = Text.printf "error: expected lval as argument to operator '%s'" (show op)
 
 isNumeric :: Type -> Bool
 isNumeric t = t `elem` [Int, Float, Char, Bool]
@@ -221,7 +219,7 @@ analyseExpr (BinaryOp Assign e1 e2) = do
   unless (t1 == t2) $ throwError $ TypeError t1 t2
   case e of
     LVal l -> pure (t1, SAssign l rhs)
-    _ -> throwError AssignError
+    _ -> throwError $ LValError Assign
 analyseExpr (BinaryOp op e1 e2) = do
   lhs@(t1, _) <- analyseExpr e1
   rhs@(t2, _) <- analyseExpr e2
@@ -233,11 +231,18 @@ analyseExpr (BinaryOp op e1 e2) = do
 analyseExpr (UnaryOp op expr) = do
   sExpr@(t, e) <- analyseExpr expr
   case op of
-    Not -> if t == Bool then pure (Bool, SUnaryOp Not sExpr) else throwError $ UnaryOprtError op t
     Neg -> if isNumeric t then pure (t, SUnaryOp Neg sExpr) else throwError $ UnaryOprtError op t
-    Ref -> case e of
-      LVal l -> pure (Pointer t, SRef l)
-      _ -> throwError RefError
+    Not -> if t == Bool then pure (Bool, SUnaryOp Not sExpr) else throwError $ UnaryOprtError op t
+    Inc -> case e of
+      LVal l -> pure (t, SInc l)
+      _ -> throwError $ LValError op
+    Dec -> case e of
+      LVal l -> pure (t, SDec l)
+      _ -> throwError $ LValError op
+    Ref -> do
+      case e of
+        LVal l -> pure (Pointer t, SRef l)
+        _ -> throwError $ LValError Ref
     Deref -> do
       ty <- unwrapPointer t
       pure (ty, LVal $ LDeref sExpr)

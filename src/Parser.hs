@@ -215,7 +215,9 @@ operatorTable =
       prefix "&" $ UnaryOp Ref,
       prefix "!" $ UnaryOp Not,
       prefix "-" $ UnaryOp Neg,
-      prefix "+" id
+      prefix "+" id,
+      postfix "++" $ UnaryOp Inc,
+      postfix "--" $ UnaryOp Dec
     ],
     [ binary "*" $ BinaryOp Mul,
       binary "/" $ BinaryOp Div,

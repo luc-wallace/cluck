@@ -35,6 +35,8 @@ data SExpr'
   | SFunctionExpr Identifier [SExpr]
   | SUnaryOp Oprt SExpr
   | SAssign LVal SExpr
+  | SInc LVal
+  | SDec LVal
   | LVal LVal
   | SRef LVal
   | SBinaryOp Oprt SExpr SExpr

@@ -174,10 +174,24 @@ codegenExpr (t, SUnaryOp op ex) = do
       Int -> L.sub (L.int32 0) ex'
       Float -> L.sub (L.double 0) ex'
       _ -> error "internal error: semant failed"
-    Not -> case t of
-      Bool -> L.xor ex' (L.bit 1)
-      _ -> error "internal error: semant failed"
+    Not -> L.xor ex' (L.bit 1)
     _ -> error "internal error: semant failed"
+codegenExpr (t, SInc lval) = do
+  addr <- codegenLVal lval
+  op <- L.load addr 0
+  after <- case t of
+    Float -> L.add op (L.double 1)
+    _ -> L.add op (L.int32 1)
+  L.store addr 0 after
+  return op
+codegenExpr (t, SDec lval) = do
+  addr <- codegenLVal lval
+  op <- L.load addr 0
+  after <- case t of
+    Float -> L.sub op (L.double 1)
+    _ -> L.sub op (L.int32 1)
+  L.store addr 0 after
+  return op
 codegenExpr e = error $ "error: codegen not implemented for expr " ++ show e
 
 codegenStmt :: SStmt -> Codegen ()

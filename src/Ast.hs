@@ -79,6 +79,8 @@ data Oprt
   | Ref
   | Deref
   | Assign
+  | Inc
+  | Dec
   deriving (Eq)
 
 instance Show Oprt where
@@ -100,6 +102,8 @@ instance Show Oprt where
   show Assign = "="
   show Ref = "&"
   show Deref = "*"
+  show Inc = "++"
+  show Dec = "--"
 
 genHeader :: Program -> String
 genHeader (Program p) = intercalate "\n" $ map showDecl p
