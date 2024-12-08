@@ -46,6 +46,12 @@ Only compatible with GHC 8.8.
 
 Requires LLVM 14 to be installed including Clang 14.
 
+On Ubuntu:
+
+```
+sudo apt install llvm-14
+```
+
 ```
 ghcup install cabal
 ```
