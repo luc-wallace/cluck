@@ -1,4 +1,5 @@
 *.c
+*.h
 !runtime.c
 !examples/*
 dist-newstyle
@@ -7,3 +8,4 @@ dist-newstyle
 *.s
 *out
 cluck
+test
