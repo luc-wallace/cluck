@@ -7,7 +7,6 @@ import Control.Monad.State
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Text (Text)
-import GHC.Float (int2Double)
 import Sast
 import qualified Text.Printf as Text
 
