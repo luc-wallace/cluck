@@ -1,5 +1,6 @@
 module Main where
 
+import Preprocess (genHeader)
 import Codegen (codegenProgram)
 import qualified Data.Text.IO as IO
 import qualified Data.Text.IO as T
@@ -10,6 +11,7 @@ import Parser (pProgram)
 import Semant (analyseProgram)
 import System.Directory (removeFile)
 import System.Exit
+import System.FilePath
 import System.Process
 import Text.Megaparsec
 
@@ -25,6 +27,7 @@ data Output
 
 data Mode
   = AST
+  | Header
   | LLVM
   | Binary
   deriving (Eq)
@@ -45,7 +48,10 @@ pOutput =
     <|> pure DefaultOutput
 
 pMode :: Parser Mode
-pMode = flag Binary AST (long "ast" <> short 'A') <|> flag Binary LLVM (long "assemble" <> short 'S')
+pMode =
+  flag Binary AST (long "ast" <> short 'A')
+    <|> flag Binary LLVM (long "assemble" <> short 'S')
+    <|> flag Binary Header (long "header" <> short 'H')
 
 options :: ParserInfo Options
 options =
@@ -71,14 +77,22 @@ main = do
     Left err -> putStrLn (errorBundlePretty err) *> exitFailure
     Right ast -> case analyseProgram ast of
       Left err -> print err *> exitFailure
-      Right sast ->
+      Right sast -> do
+        let output = case out of
+              FileOutput outFile -> outFile
+              DefaultOutput -> do
+                case inFile of
+                  "<stdin>" -> "out"
+                  _ ->
+                    takeBaseName inFile ++ case mode of
+                      Header -> ".h"
+                      LLVM -> ".ll"
+                      _ -> ""
         case mode of
           AST -> print sast
+          Header -> writeFile output $ genHeader ast
           _ -> do
             let llvm = unpack . ppllvm . codegenProgram $ sast
-            let output = case out of
-                  FileOutput outFile -> outFile
-                  DefaultOutput -> if mode == Binary then "out" else "out.ll"
 
             case mode of
               LLVM -> writeFile output llvm

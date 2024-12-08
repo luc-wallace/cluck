@@ -68,6 +68,10 @@ Use Ctrl + D to submit once typed.
 
 `-o` - Specify output file
 
+`-A` - Output AST
+
+`-H` - Generate header file
+
 `-S` - Output LLVM IR
 
 # Examples

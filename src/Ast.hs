@@ -1,8 +1,6 @@
 module Ast where
 
-import Data.List (intercalate)
 import Data.Text (Text)
-import Text.Printf (printf)
 
 type Identifier = Text
 
@@ -104,14 +102,3 @@ instance Show Oprt where
   show Deref = "*"
   show Inc = "++"
   show Dec = "--"
-
-genHeader :: Program -> String
-genHeader (Program p) = intercalate "\n" $ map showDecl p
-  where
-    showDecl (FunctionDecl t i args _) =
-      printf "%s %s(%s);" (show t) i (showArgs args)
-    showDecl (VariableDecl t i _) =
-      printf "%s %s;" (show t) i
-
-    showArgs args =
-      intercalate ", " $ map (\(ty, ident) -> printf "%s %s" (show ty) ident) args
