@@ -251,10 +251,10 @@ analyseExpr (Cast t1 expr) = do
   sExpr@(t2, _) <- analyseExpr expr
   if t1 == t2
     then pure sExpr
-    else case (t1, expr) of
-      (Float, IntLiteral n) -> pure (Float, SFloatLiteral $ int2Double n)
-      (Int, FloatLiteral n) -> pure (Int, SIntLiteral $ truncate n)
-      (Int, CharLiteral c) -> pure (Int, SIntLiteral $ fromEnum c)
-      (Char, IntLiteral n) -> pure (Char, SCharLiteral $ toEnum n)
+    else case (t1, t2) of
+      (Float, Int) -> pure (Float, SCast Float sExpr)
+      (Int, Float) -> pure (Int, SCast Int sExpr)
+      (Int, Char) -> pure (Int, SCast Int sExpr)
+      (Char, Int) -> pure (Char, SCast Char sExpr)
       _ -> throwError $ CastError t1 t2
 analyseExpr expr = error $ "error: expression not implemented " ++ show expr

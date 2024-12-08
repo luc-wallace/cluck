@@ -192,6 +192,15 @@ codegenExpr (t, SDec lval) = do
     _ -> L.sub op (L.int32 1)
   L.store addr 0 after
   return op
+codegenExpr (_, SCast t1 expr@(t2, _)) = do
+  op <- codegenExpr expr
+  ty <- convType t1
+  case (t1, t2) of
+    (Char, Int) -> L.trunc op ty
+    (Int, Char) -> L.zext op ty
+    (Float, Int) -> L.sitofp op ty
+    (Int, Float) -> L.fptosi op ty
+    _ -> error "error: semant failed"
 codegenExpr e = error $ "error: codegen not implemented for expr " ++ show e
 
 codegenStmt :: SStmt -> Codegen ()

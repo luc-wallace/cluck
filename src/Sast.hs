@@ -33,11 +33,12 @@ data SExpr'
   | SFloatLiteral Double
   | SBoolLiteral Bool
   | SFunctionExpr Identifier [SExpr]
+  | SBinaryOp Oprt SExpr SExpr
   | SUnaryOp Oprt SExpr
   | SAssign LVal SExpr
   | SInc LVal
   | SDec LVal
   | LVal LVal
   | SRef LVal
-  | SBinaryOp Oprt SExpr SExpr
+  | SCast Type SExpr
   deriving (Show, Eq)

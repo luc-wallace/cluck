@@ -14,11 +14,12 @@ Current:
 - Return, if, for, while and do-while statements
 - Expressions and precedence
 - Number, char and float literals
-- Binary and unary operators (not all implemented)
+- Binary and unary operators (most implemented)
 - Detailed syntax errors
 - Static analysis for bindings and types
 - Code generation for expressions and functions
 - Pointer types
+- Type casts
 
 Future:
 
