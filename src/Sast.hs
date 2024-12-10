@@ -17,6 +17,8 @@ data SStmt
   | SIfStmt SExpr SStmt SStmt
   | SDoWhileStmt SStmt SExpr
   | SReturnStmt (Maybe SExpr)
+  | SBreakStmt
+  | SContinueStmt
   deriving (Show)
 
 type SExpr = (Type, SExpr')

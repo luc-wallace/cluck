@@ -43,6 +43,8 @@ data Stmt
   | ForStmt Expr Expr Expr Stmt
   | WhileStmt Expr Stmt
   | ReturnStmt (Maybe Expr)
+  | BreakStmt
+  | ContinueStmt
   deriving (Show)
 
 data Expr

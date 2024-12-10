@@ -20,7 +20,11 @@ import qualified LLVM.IRBuilder.Module as L
 import qualified LLVM.IRBuilder.Monad as L
 import Sast
 
-newtype Env = Env {operands :: Map Identifier AST.Operand}
+data Env = Env
+  { operands :: Map Identifier AST.Operand,
+    breakLabel :: AST.Name,
+    continueLabel :: AST.Name
+  }
 
 type LLVM = L.ModuleBuilderT (State Env)
 
@@ -39,7 +43,7 @@ convType t = case t of
 
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (SProgram decls) =
-  flip evalState (Env {operands = M.empty}) $
+  flip evalState (Env {operands = M.empty, breakLabel = "", continueLabel = ""}) $
     L.buildModuleT "cluck" $ do
       printint <- L.extern (AST.mkName "printint") [AST.i32] AST.void
       printfloat <- L.extern (AST.mkName "printfloat") [AST.double] AST.void
@@ -243,6 +247,8 @@ codegenStmt (SIfStmt cond t e) = mdo
   pure ()
 codegenStmt (SDoWhileStmt body cond) = mdo
   L.br bodyBlock
+  oldEnv <- get
+  modify $ \env -> env {breakLabel = endBlock, continueLabel = bodyBlock}
 
   bodyBlock <- L.block `L.named` "body"
   codegenStmt body
@@ -250,6 +256,7 @@ codegenStmt (SDoWhileStmt body cond) = mdo
   mkTerminator $ L.condBr c bodyBlock endBlock
 
   endBlock <- L.block `L.named` "end"
+  modify $ const oldEnv
   pure ()
 codegenStmt (SVariableDeclStmt t ident expr) = do
   ty <- convType t
@@ -260,6 +267,13 @@ codegenStmt (SVariableDeclStmt t ident expr) = do
     Just e -> do
       op <- codegenExpr e
       L.store addr 0 op
+codegenStmt SBreakStmt = do
+  exit <- gets breakLabel
+  L.br exit
+codegenStmt SContinueStmt = do
+  cont <- gets continueLabel
+  L.br cont
+codegenStmt _ = error "error: semant failed"
 
 mkTerminator :: Codegen () -> Codegen ()
 mkTerminator instr = do

@@ -18,7 +18,8 @@ type Semant = ExceptT SemantError (State Env)
 data Env = Env
   { vars :: Map Identifier Decl,
     funcs :: Map Identifier Decl,
-    curFunc :: (Identifier, Type)
+    curFunc :: (Identifier, Type),
+    inLoop :: Bool
   }
 
 data DeclKind
@@ -42,6 +43,7 @@ data SemantError
   | CastError Type Type
   | LValError Oprt
   | UBError Identifier
+  | BreakContError
 
 instance Show SemantError where
   show (NameError d ident) = Text.printf "error: %s '%s' is not defined" (dKind d) ident
@@ -59,6 +61,7 @@ instance Show SemantError where
   show (CastError t1 t2) = Text.printf "error: unable to type cast %s to %s" (show t2) (show t1)
   show (LValError op) = Text.printf "error: expected lval as argument to operator '%s'" (show op)
   show (UBError ident) = Text.printf "error: undefined behaviour from use of uninitialised variable '%s'" ident
+  show BreakContError = Text.printf "error: cannot use break/continue statement outside of a loop"
 
 isNumeric :: Type -> Bool
 isNumeric t = t `elem` [Int, Float, Char, Bool]
@@ -85,7 +88,7 @@ analyseProgram (Program decls) =
       [ ("printint", FunctionDecl Void "printint" [(Int, "")] Nothing),
         ("printfloat", FunctionDecl Void "printfloat" [(Float, "")] Nothing)
       ]
-    baseEnv = Env {vars = M.empty, funcs = M.fromList builtIns, curFunc = ("", Void)}
+    baseEnv = Env {vars = M.empty, funcs = M.fromList builtIns, curFunc = ("", Void), inLoop = False}
 
 analyseDecl :: Decl -> Semant SDecl
 analyseDecl d@(VariableDecl t1 ident expr) = do
@@ -181,12 +184,23 @@ analyseStmt (ReturnStmt e) = do
         then pure $ SReturnStmt (Just sExpr)
         else throwError $ TypeError rett t
 analyseStmt (DoWhileStmt stmt cond) = do
+  inl <- gets inLoop
+  unless inl $ modify $ \env -> env {inLoop = True}
   sStmt <- analyseStmt stmt
   sCond@(t, _) <- analyseExpr cond
   unless (t == Bool) $ throwError $ TypeError Bool t
+  unless inl $ modify $ \env -> env {inLoop = False}
   pure $ SDoWhileStmt sStmt sCond
 analyseStmt (ForStmt e1 e2 e3 stmt) = analyseStmt $ BlockStmt [ExprStmt e1, DoWhileStmt (BlockStmt [stmt, ExprStmt e3]) e2]
 analyseStmt (WhileStmt cond stmt) = analyseStmt $ IfStmt cond (DoWhileStmt stmt cond) Nothing
+analyseStmt BreakStmt = do
+  inl <- gets inLoop
+  unless inl $ throwError BreakContError
+  pure SBreakStmt
+analyseStmt ContinueStmt = do
+  inl <- gets inLoop
+  unless inl $ throwError BreakContError
+  pure SContinueStmt
 
 analyseExpr :: Expr -> Semant SExpr
 analyseExpr (IntLiteral n) = pure (Int, SIntLiteral n)

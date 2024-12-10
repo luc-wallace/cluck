@@ -142,6 +142,8 @@ pStmt =
     choice
       [ pBlockStmt,
         pReturnStmt,
+        pBreakStmt,
+        pContinueStmt,
         pIfStmt,
         pDoWhileStmt,
         pForStmt,
@@ -157,6 +159,12 @@ pVarDeclStmt =
     <*> lexeme pIdent
     <*> optional (symbol "=" *> lexeme pExpr)
     <* symbol ";"
+
+pBreakStmt :: Parser Stmt
+pBreakStmt = BreakStmt <$ pWord "break" <* symbol ";"
+
+pContinueStmt :: Parser Stmt
+pContinueStmt = ContinueStmt <$ pWord "continue" <* symbol ";"
 
 pReturnStmt :: Parser Stmt
 pReturnStmt = ReturnStmt <$ pWord "return" <*> optional (lexeme pExpr) <* symbol ";"
