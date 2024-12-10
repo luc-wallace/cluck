@@ -7,6 +7,7 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import Data.String.Conversions (cs)
+import Data.Text (unpack)
 import qualified Data.Text.Encoding as TE
 import qualified LLVM.AST as AST hiding (function)
 import qualified LLVM.AST.Constant as C
@@ -41,18 +42,22 @@ convType t = case t of
   Float -> pure AST.double
   Pointer ty -> fmap AST.ptr (convType ty)
 
+emitBuiltIn :: (Identifier, [AST.Type], AST.Type) -> LLVM ()
+emitBuiltIn (name, args, rett) = do
+  func <- L.extern ((AST.mkName . unpack) name) args rett
+  modify $ \env -> env {operands = M.insert name func (operands env)}
+
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (SProgram decls) =
   flip evalState (Env {operands = M.empty, breakLabel = "", continueLabel = ""}) $
     L.buildModuleT "cluck" $ do
-      printint <- L.extern (AST.mkName "printint") [AST.i32] AST.void
-      printfloat <- L.extern (AST.mkName "printfloat") [AST.double] AST.void
-      modify $ \env ->
-        env
-          { operands =
-              M.insert "printfloat" printfloat $
-                M.insert "printint" printint (operands env)
-          }
+      mapM_
+        emitBuiltIn
+        [ ("printint", [AST.i32], AST.void),
+          ("printfloat", [AST.double], AST.void),
+          ("malloc", [AST.i32], AST.ptr AST.i8),
+          ("free", [AST.ptr AST.i8], AST.void)
+        ]
       mapM_ codegenDecl decls
 
 codegenLVal :: LVal -> Codegen AST.Operand
@@ -131,10 +136,15 @@ codegenExpr (_, SBinaryOp op lex rex) = do
     Add -> case (fst lex, fst rex) of
       (Int, Int) -> L.add lhs rhs
       (Float, Float) -> L.fadd lhs rhs
+      (Pointer _, Int) -> L.gep lhs [rhs]
+      (Int, Pointer _) -> L.gep lhs [rhs]
       _ -> error "internal error: semant failed"
     Sub -> case (fst lex, fst rex) of
       (Int, Int) -> L.sub lhs rhs
       (Float, Float) -> L.fsub lhs rhs
+      (Pointer _, Int) -> do
+        rhs' <- L.sub (L.int32 0) rhs
+        L.gep lhs [rhs']
       _ -> error "internal error: semant failed"
     Mul -> case fst lex of
       Int -> L.mul lhs rhs
@@ -210,6 +220,7 @@ codegenExpr (_, SCast t1 expr@(t2, _)) = do
   op <- codegenExpr expr
   ty <- convType t1
   case (t1, t2) of
+    (Pointer _, Pointer _) -> L.bitcast op ty
     (Char, Int) -> L.trunc op ty
     (Int, Char) -> L.zext op ty
     (Float, Int) -> L.sitofp op ty

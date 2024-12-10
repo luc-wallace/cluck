@@ -86,7 +86,9 @@ analyseProgram (Program decls) =
   where
     builtIns =
       [ ("printint", FunctionDecl Void "printint" [(Int, "")] Nothing),
-        ("printfloat", FunctionDecl Void "printfloat" [(Float, "")] Nothing)
+        ("printfloat", FunctionDecl Void "printfloat" [(Float, "")] Nothing),
+        ("malloc", FunctionDecl (Pointer Void) "malloc" [(Int, "")] Nothing),
+        ("free", FunctionDecl (Pointer Void) "free" [(Pointer Void, "")] Nothing)
       ]
     baseEnv = Env {vars = M.empty, funcs = M.fromList builtIns, curFunc = ("", Void), inLoop = False}
 
@@ -214,6 +216,11 @@ analyseExpr (VariableExpr ident) = do
     Nothing -> throwError $ NameError Variable ident
     Just (VariableDecl t _ e) -> if isNothing e then throwError $ UBError ident else pure (t, LVal (LVar ident))
     _ -> error "error: invalid env state"
+analyseExpr (FunctionExpr "free" args) = do
+  unless (length args == 1) $ throwError $ ArgumentError "free" 1 (length args)
+  sAddr@(t, _) <- analyseExpr $ head args
+  _ <- unwrapPointer t
+  pure (Void, SFunctionExpr "free" [(Pointer t, SCast (Pointer Char) sAddr)])
 analyseExpr (FunctionExpr ident args) = do
   funcs' <- gets funcs
   case M.lookup ident funcs' of
@@ -244,11 +251,25 @@ analyseExpr (BinaryOp Assign e1 e2) = do
 analyseExpr (BinaryOp op e1 e2) = do
   lhs@(t1, _) <- analyseExpr e1
   rhs@(t2, _) <- analyseExpr e2
+  let sbinop = SBinaryOp op lhs rhs
 
-  unless (t1 == t2 && isNumeric t1) $ throwError $ BinaryOprtError op t1 t2
-  if isLogical op
-    then pure (Bool, SBinaryOp op lhs rhs)
-    else pure (t1, SBinaryOp op lhs rhs)
+  case op of
+    Add -> case (t1, t2) of
+      (Int, Int) -> pure (Int, sbinop)
+      (Float, Float) -> pure (Float, sbinop)
+      (Pointer t, Int) -> pure (Pointer t, sbinop)
+      (Int, Pointer t) -> pure (Pointer t, sbinop)
+      _ -> throwError $ BinaryOprtError op t1 t2
+    Sub -> case (t1, t2) of
+      (Int, Int) -> pure (Int, sbinop)
+      (Float, Float) -> pure (Float, sbinop)
+      (Pointer t, Int) -> pure (Pointer t, sbinop)
+      _ -> throwError $ BinaryOprtError op t1 t2
+    _ -> do
+      unless (t1 == t2 && isNumeric t1) $ throwError $ BinaryOprtError op t1 t2
+      if isLogical op
+        then pure (Bool, sbinop)
+        else pure (t1, sbinop)
 analyseExpr (UnaryOp op expr) = do
   sExpr@(t, e) <- analyseExpr expr
   case op of
@@ -273,6 +294,7 @@ analyseExpr (Cast t1 expr) = do
   if t1 == t2
     then pure sExpr
     else case (t1, t2) of
+      (Pointer t, Pointer _) -> pure (Pointer t, SCast (Pointer t) sExpr)
       (Float, Int) -> pure (Float, SCast Float sExpr)
       (Int, Float) -> pure (Int, SCast Int sExpr)
       (Int, Char) -> pure (Int, SCast Int sExpr)

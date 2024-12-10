@@ -34,6 +34,7 @@ data SExpr'
   | SIntLiteral Int
   | SFloatLiteral Double
   | SBoolLiteral Bool
+  | SNull
   | SFunctionExpr Identifier [SExpr]
   | SBinaryOp Oprt SExpr SExpr
   | SUnaryOp Oprt SExpr

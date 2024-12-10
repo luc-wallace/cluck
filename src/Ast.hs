@@ -53,6 +53,7 @@ data Expr
   | IntLiteral Int
   | FloatLiteral Double
   | BoolLiteral Bool
+  | Null
   | VariableExpr Identifier
   | FunctionExpr Identifier [Expr]
   | UnaryOp Oprt Expr
