@@ -215,6 +215,14 @@ codegenExpr (_, SCast t1 expr@(t2, _)) = do
     (Float, Int) -> L.sitofp op ty
     (Int, Float) -> L.fptosi op ty
     _ -> error "error: semant failed"
+codegenExpr (_, SSizeOf t) =
+  case t of
+    Char -> pure $ L.int32 1
+    Int -> pure $ L.int32 4
+    Float -> pure $ L.int32 8
+    Bool -> pure $ L.int32 1
+    Void -> pure $ L.int32 0
+    Pointer _ -> pure $ L.int32 8
 codegenExpr e = error $ "error: codegen not implemented for expr " ++ show e
 
 codegenStmt :: SStmt -> Codegen ()
@@ -273,7 +281,6 @@ codegenStmt SBreakStmt = do
 codegenStmt SContinueStmt = do
   cont <- gets continueLabel
   L.br cont
-codegenStmt _ = error "error: semant failed"
 
 mkTerminator :: Codegen () -> Codegen ()
 mkTerminator instr = do

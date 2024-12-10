@@ -278,4 +278,5 @@ analyseExpr (Cast t1 expr) = do
       (Int, Char) -> pure (Int, SCast Int sExpr)
       (Char, Int) -> pure (Char, SCast Char sExpr)
       _ -> throwError $ CastError t1 t2
+analyseExpr (SizeOf t) = pure (Int, SSizeOf t)
 analyseExpr expr = error $ "error: expression not implemented " ++ show expr

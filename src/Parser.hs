@@ -176,10 +176,10 @@ pBlockStmt :: Parser Stmt
 pBlockStmt = BlockStmt <$> between (symbol "{") (symbol "}") (many pStmt)
 
 pIfStmt :: Parser Stmt
-pIfStmt = IfStmt <$ pWord "if" <*> lexeme pParens <*> lexeme pStmt <*> optional (pWord "else" *> pStmt)
+pIfStmt = IfStmt <$ pWord "if" <*> lexeme (pParens pExpr) <*> lexeme pStmt <*> optional (pWord "else" *> pStmt)
 
 pDoWhileStmt :: Parser Stmt
-pDoWhileStmt = DoWhileStmt <$ pWord "do" <*> lexeme pStmt <* pWord "while" <*> lexeme pParens <* symbol ";"
+pDoWhileStmt = DoWhileStmt <$ pWord "do" <*> lexeme pStmt <* pWord "while" <*> lexeme (pParens pExpr) <* symbol ";"
 
 pForStmt :: Parser Stmt
 pForStmt = do
@@ -194,13 +194,16 @@ pForStmt = do
   ForStmt e1 e2 e3 <$> lexeme pStmt
 
 pWhileStmt :: Parser Stmt
-pWhileStmt = WhileStmt <$ pWord "while" <*> lexeme pParens <*> pStmt
+pWhileStmt = WhileStmt <$ pWord "while" <*> lexeme (pParens pExpr) <*> pStmt
 
-pParens :: Parser Expr
-pParens = between (symbol "(") (symbol ")") pExpr
+pParens :: Parser a -> Parser a
+pParens = between (symbol "(") (symbol ")")
 
 pCast :: Parser Expr
-pCast = Cast <$> lexeme (between (symbol "(") (symbol ")") pType) <*> pExpr
+pCast = Cast <$> lexeme (pParens pType) <*> pExpr
+
+pSizeOf :: Parser Expr
+pSizeOf = SizeOf <$ pWord "sizeof" <*> pParens pType
 
 pTerm :: Parser Expr
 pTerm =
@@ -209,10 +212,11 @@ pTerm =
       [ try pCast,
         try pFloat,
         try pBoolLiteral,
+        try pSizeOf,
         pNum,
         try pFuncExpr,
         try pVarExpr,
-        pParens,
+        pParens pExpr,
         pStringLiteral,
         pCharLiteral
       ]

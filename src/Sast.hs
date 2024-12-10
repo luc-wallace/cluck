@@ -43,4 +43,5 @@ data SExpr'
   | LVal LVal
   | SRef LVal
   | SCast Type SExpr
+  | SSizeOf Type
   deriving (Show, Eq)
