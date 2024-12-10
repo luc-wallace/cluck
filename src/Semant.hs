@@ -78,7 +78,11 @@ analyseProgram :: Program -> Either SemantError SProgram
 analyseProgram (Program decls) =
   evalState (runExceptT (SProgram <$> mapM analyseDecl decls)) baseEnv
   where
-    baseEnv = Env {vars = M.empty, funcs = M.fromList [("printint", FunctionDecl Int "printint" [(Int, "")] Nothing)], curFunc = ("", Void)}
+    builtIns =
+      [ ("printint", FunctionDecl Void "printint" [(Int, "")] Nothing),
+        ("printfloat", FunctionDecl Void "printfloat" [(Float, "")] Nothing)
+      ]
+    baseEnv = Env {vars = M.empty, funcs = M.fromList builtIns, curFunc = ("", Void)}
 
 analyseDecl :: Decl -> Semant SDecl
 analyseDecl d@(VariableDecl t1 ident expr) = do

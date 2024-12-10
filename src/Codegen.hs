@@ -41,8 +41,14 @@ codegenProgram :: SProgram -> AST.Module
 codegenProgram (SProgram decls) =
   flip evalState (Env {operands = M.empty}) $
     L.buildModuleT "cluck" $ do
-      printint <- L.extern (AST.mkName "printint") [AST.i32] AST.i32
-      modify $ \env -> env {operands = M.insert "printint" printint (operands env)}
+      printint <- L.extern (AST.mkName "printint") [AST.i32] AST.void
+      printfloat <- L.extern (AST.mkName "printfloat") [AST.double] AST.void
+      modify $ \env ->
+        env
+          { operands =
+              M.insert "printfloat" printfloat $
+                M.insert "printint" printint (operands env)
+          }
       mapM_ codegenDecl decls
 
 codegenLVal :: LVal -> Codegen AST.Operand
@@ -133,6 +139,10 @@ codegenExpr (_, SBinaryOp op lex rex) = do
     Div -> case fst lex of
       Int -> L.sdiv lhs rhs
       Float -> L.fdiv lhs rhs
+      _ -> error "internal error: semant failed"
+    Mod -> case fst lex of
+      Int -> L.srem lhs rhs
+      Float -> L.frem lhs rhs
       _ -> error "internal error: semant failed"
     EqTo -> case fst lex of
       Int -> L.icmp IP.EQ lhs rhs
