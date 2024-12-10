@@ -6,6 +6,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import Data.Map (Map)
 import qualified Data.Map as M
+import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Sast
 import qualified Text.Printf as Text
@@ -40,6 +41,7 @@ data SemantError
   | ConstantError Identifier
   | CastError Type Type
   | LValError Oprt
+  | UBError Identifier
 
 instance Show SemantError where
   show (NameError d ident) = Text.printf "error: %s '%s' is not defined" (dKind d) ident
@@ -56,6 +58,7 @@ instance Show SemantError where
   show (ConstantError ident) = Text.printf "error: global variable '%s' must have a constant value" ident
   show (CastError t1 t2) = Text.printf "error: unable to type cast %s to %s" (show t2) (show t1)
   show (LValError op) = Text.printf "error: expected lval as argument to operator '%s'" (show op)
+  show (UBError ident) = Text.printf "error: undefined behaviour from use of uninitialised variable '%s'" ident
 
 isNumeric :: Type -> Bool
 isNumeric t = t `elem` [Int, Float, Char, Bool]
@@ -195,7 +198,8 @@ analyseExpr (VariableExpr ident) = do
   vars' <- gets vars
   case M.lookup ident vars' of
     Nothing -> throwError $ NameError Variable ident
-    Just d -> pure (declTy d, LVal (LVar ident))
+    Just (VariableDecl t _ e) -> if isNothing e then throwError $ UBError ident else pure (t, LVal (LVar ident))
+    _ -> error "error: invalid env state"
 analyseExpr (FunctionExpr ident args) = do
   funcs' <- gets funcs
   case M.lookup ident funcs' of
