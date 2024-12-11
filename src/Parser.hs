@@ -30,17 +30,14 @@ pWord w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 integer :: Parser Integer
 integer = lexeme L.decimal
 
-pCharLiteral :: Parser Expr
-pCharLiteral = CharLiteral <$> between (char '\'') (char '\'') L.charLiteral
-
-pStringLiteral :: Parser Expr
-pStringLiteral = StringLiteral . pack <$ char '\"' <*> manyTill L.charLiteral (char '\"')
-
-pBoolLiteral :: Parser Expr
-pBoolLiteral = BoolLiteral <$> (True <$ string "true" <|> False <$ string "false")
+-- pStringLiteral :: Parser Expr
+-- pStringLiteral = StringLiteral . pack <$ char '\"' <*> manyTill L.charLiteral (char '\"')
 
 nonDigit :: Parser Char
 nonDigit = alphaNumChar <|> char '_'
+
+pParens :: Parser a -> Parser a
+pParens = between (symbol "(") (symbol ")")
 
 keywords :: [Text]
 keywords =
@@ -100,15 +97,18 @@ pType = do
   pointers <- many $ try $ space *> string "*"
   return $ foldr (const Pointer) base pointers
 
+pProgram :: Parser Program
+pProgram = Program <$ lexeme space <*> many (lexeme pDecl) <* eof
+
+pDecl :: Parser Decl
+pDecl = try pVarDecl <|> pFuncDecl
+
 pVarDecl :: Parser Decl
 pVarDecl =
   VariableDecl <$> lexeme pType
     <*> lexeme pIdent
     <*> optional (symbol "=" *> lexeme pExpr)
     <* symbol ";"
-
-pDecl :: Parser Decl
-pDecl = try pVarDecl <|> pFuncDecl
 
 pFuncDecl :: Parser Decl
 pFuncDecl =
@@ -124,20 +124,21 @@ pFuncArg = (,) <$> lexeme pType <*> lexeme pIdent
 pExpr :: Parser Expr
 pExpr = label "expression" (makeExprParser pTerm operatorTable)
 
-pNum :: Parser Expr
-pNum = IntLiteral <$> L.decimal
-
-pFloat :: Parser Expr
-pFloat = FloatLiteral <$> L.float
-
-pNull :: Parser Expr
-pNull = Null <$ pWord "NULL"
-
-pVarExpr :: Parser Expr
-pVarExpr = VariableExpr <$> pIdent
-
-pFuncExpr :: Parser Expr
-pFuncExpr = FunctionExpr <$> lexeme pIdent <*> between (symbol "(") (symbol ")") (pExpr `sepBy` symbol ",")
+pTerm :: Parser Expr
+pTerm =
+  lexeme $
+    choice
+      [ try $ Cast <$> lexeme (pParens pType) <*> pExpr,
+        try $ FloatLiteral <$> L.float,
+        try $ BoolLiteral <$> (True <$ string "true" <|> False <$ string "false"),
+        try $ SizeOf <$ pWord "sizeof" <*> pParens pType,
+        try $ Null <$ pWord "NULL",
+        IntLiteral <$> L.decimal,
+        CharLiteral <$> between (char '\'') (char '\'') L.charLiteral,
+        try $ FunctionExpr <$> lexeme pIdent <*> between (symbol "(") (symbol ")") (pExpr `sepBy` symbol ","),
+        try $ VariableExpr <$> pIdent,
+        pParens pExpr
+      ]
 
 pStmt :: Parser Stmt
 pStmt =
@@ -199,32 +200,6 @@ pForStmt = do
 pWhileStmt :: Parser Stmt
 pWhileStmt = WhileStmt <$ pWord "while" <*> lexeme (pParens pExpr) <*> pStmt
 
-pParens :: Parser a -> Parser a
-pParens = between (symbol "(") (symbol ")")
-
-pCast :: Parser Expr
-pCast = Cast <$> lexeme (pParens pType) <*> pExpr
-
-pSizeOf :: Parser Expr
-pSizeOf = SizeOf <$ pWord "sizeof" <*> pParens pType
-
-pTerm :: Parser Expr
-pTerm =
-  lexeme $
-    choice
-      [ try pCast,
-        try pFloat,
-        try pBoolLiteral,
-        try pSizeOf,
-        try pNull,
-        pNum,
-        try pFuncExpr,
-        try pVarExpr,
-        pParens pExpr,
-        pStringLiteral,
-        pCharLiteral
-      ]
-
 operatorTable :: [[Operator Parser Expr]]
 operatorTable =
   [ [ prefix "*" $ UnaryOp Deref,
@@ -262,6 +237,3 @@ binary name f = InfixL (f <$ symbol name)
 prefix, postfix :: Text -> (Expr -> Expr) -> Operator Parser Expr
 prefix name f = Prefix (f <$ symbol name)
 postfix name f = Postfix (f <$ symbol name)
-
-pProgram :: Parser Program
-pProgram = Program <$ lexeme space <*> many (lexeme pDecl) <* eof
