@@ -34,6 +34,7 @@ type Codegen = L.IRBuilderT LLVM
 -- use insertOperand helper
 
 convType :: MonadState Env m => Type -> m AST.Type
+convType (Pointer Void) = pure $ AST.ptr AST.i8
 convType t = case t of
   Void -> pure AST.void
   Int -> pure AST.i32
@@ -116,6 +117,9 @@ codegenExpr (_, SIntLiteral n) = pure $ L.int32 (fromIntegral n)
 codegenExpr (_, SFloatLiteral n) = pure $ L.double n
 codegenExpr (_, SBoolLiteral b) = pure $ L.bit $ if b then 1 else 0
 codegenExpr (_, SCharLiteral c) = pure $ L.int8 $ fromIntegral $ fromEnum c
+codegenExpr (t, SNull) = do
+  ty <- convType t
+  L.inttoptr (L.int64 0) ty
 codegenExpr (_, LVal l) = do
   op <- codegenLVal l
   L.load op 0
@@ -162,11 +166,15 @@ codegenExpr (_, SBinaryOp op lex rex) = do
       Int -> L.icmp IP.EQ lhs rhs
       Char -> L.icmp IP.EQ lhs rhs
       Float -> L.fcmp FP.OEQ lhs rhs
+      Bool -> L.icmp IP.EQ lhs rhs
+      Pointer _ -> L.icmp IP.EQ lhs rhs
       _ -> error "internal error: semant failed"
     NtEqTo -> case fst lex of
       Int -> L.icmp IP.NE lhs rhs
       Char -> L.icmp IP.NE lhs rhs
       Float -> L.fcmp FP.ONE lhs rhs
+      Bool -> L.icmp IP.NE lhs rhs
+      Pointer _ -> L.icmp IP.NE lhs rhs
       _ -> error "internal error: semant failed"
     Lt -> case fst lex of
       Int -> L.icmp IP.SLT lhs rhs
@@ -221,6 +229,8 @@ codegenExpr (_, SCast t1 expr@(t2, _)) = do
   ty <- convType t1
   case (t1, t2) of
     (Pointer _, Pointer _) -> L.bitcast op ty
+    (Pointer _, Int) -> L.inttoptr op ty
+    (Int, Pointer _) -> L.ptrtoint op ty
     (Char, Int) -> L.trunc op ty
     (Int, Char) -> L.zext op ty
     (Float, Int) -> L.sitofp op ty

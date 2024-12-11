@@ -6,7 +6,6 @@ import Control.Monad.Except
 import Control.Monad.State
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Sast
 import qualified Text.Printf as Text
@@ -42,7 +41,6 @@ data SemantError
   | ConstantError Identifier
   | CastError Type Type
   | LValError Oprt
-  | UBError Identifier
   | BreakContError
 
 instance Show SemantError where
@@ -60,7 +58,6 @@ instance Show SemantError where
   show (ConstantError ident) = Text.printf "error: global variable '%s' must have a constant value" ident
   show (CastError t1 t2) = Text.printf "error: unable to type cast %s to %s" (show t2) (show t1)
   show (LValError op) = Text.printf "error: expected lval as argument to operator '%s'" (show op)
-  show (UBError ident) = Text.printf "error: undefined behaviour from use of uninitialised variable '%s'" ident
   show BreakContError = Text.printf "error: cannot use break/continue statement outside of a loop"
 
 isNumeric :: Type -> Bool
@@ -209,18 +206,19 @@ analyseExpr (IntLiteral n) = pure (Int, SIntLiteral n)
 analyseExpr (FloatLiteral n) = pure (Float, SFloatLiteral n)
 analyseExpr (CharLiteral c) = pure (Char, SCharLiteral c)
 analyseExpr (BoolLiteral b) = pure (Bool, SBoolLiteral b)
+analyseExpr Null = pure (Pointer Void, SNull)
 -- analyseExpr (StringLiteral s) = pure (String, SCharLiteral s)
 analyseExpr (VariableExpr ident) = do
   vars' <- gets vars
   case M.lookup ident vars' of
     Nothing -> throwError $ NameError Variable ident
-    Just (VariableDecl t _ e) -> if isNothing e then throwError $ UBError ident else pure (t, LVal (LVar ident))
+    Just (VariableDecl t _ _) -> pure (t, LVal (LVar ident))
     _ -> error "error: invalid env state"
 analyseExpr (FunctionExpr "free" args) = do
   unless (length args == 1) $ throwError $ ArgumentError "free" 1 (length args)
   sAddr@(t, _) <- analyseExpr $ head args
   _ <- unwrapPointer t
-  pure (Void, SFunctionExpr "free" [(Pointer t, SCast (Pointer Char) sAddr)])
+  pure (Void, SFunctionExpr "free" [(Pointer t, SCast (Pointer Void) sAddr)])
 analyseExpr (FunctionExpr ident args) = do
   funcs' <- gets funcs
   case M.lookup ident funcs' of
@@ -266,7 +264,7 @@ analyseExpr (BinaryOp op e1 e2) = do
       (Pointer t, Int) -> pure (Pointer t, sbinop)
       _ -> throwError $ BinaryOprtError op t1 t2
     _ -> do
-      unless (t1 == t2 && isNumeric t1) $ throwError $ BinaryOprtError op t1 t2
+      unless (t1 == t2 && (op `elem` [EqTo, NtEqTo] || isNumeric t1)) $ throwError $ BinaryOprtError op t1 t2
       if isLogical op
         then pure (Bool, sbinop)
         else pure (t1, sbinop)
@@ -295,6 +293,8 @@ analyseExpr (Cast t1 expr) = do
     then pure sExpr
     else case (t1, t2) of
       (Pointer t, Pointer _) -> pure (Pointer t, SCast (Pointer t) sExpr)
+      (Int, Pointer _) -> pure (Int, SCast Int sExpr)
+      (Pointer t, Int) -> pure (Pointer t, SCast (Pointer t) sExpr)
       (Float, Int) -> pure (Float, SCast Float sExpr)
       (Int, Float) -> pure (Int, SCast Int sExpr)
       (Int, Char) -> pure (Int, SCast Int sExpr)

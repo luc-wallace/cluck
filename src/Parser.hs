@@ -130,6 +130,9 @@ pNum = IntLiteral <$> L.decimal
 pFloat :: Parser Expr
 pFloat = FloatLiteral <$> L.float
 
+pNull :: Parser Expr
+pNull = Null <$ pWord "NULL"
+
 pVarExpr :: Parser Expr
 pVarExpr = VariableExpr <$> pIdent
 
@@ -213,6 +216,7 @@ pTerm =
         try pFloat,
         try pBoolLiteral,
         try pSizeOf,
+        try pNull,
         pNum,
         try pFuncExpr,
         try pVarExpr,
