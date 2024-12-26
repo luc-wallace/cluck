@@ -12,11 +12,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 type Parser = Parsec Void Text
 
 sc :: Parser ()
-sc =
-  L.space
-    space1
-    (L.skipLineComment "//")
-    (L.skipBlockComment "/*" "*/")
+sc = L.space space1 (L.skipLineComment "//") (L.skipBlockComment "/*" "*/")
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
@@ -30,9 +26,6 @@ pWord w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 integer :: Parser Integer
 integer = lexeme L.decimal
 
--- pStringLiteral :: Parser Expr
--- pStringLiteral = StringLiteral . pack <$ char '\"' <*> manyTill L.charLiteral (char '\"')
-
 nonDigit :: Parser Char
 nonDigit = alphaNumChar <|> char '_'
 
@@ -41,37 +34,23 @@ pParens = between (symbol "(") (symbol ")")
 
 keywords :: [Text]
 keywords =
-  [ "auto",
-    "break",
+  [ "break",
     "case",
     "char",
-    "const",
+    "if",
     "continue",
-    "default",
     "do",
+    "sizeof",
+    "switch",
     "double",
     "else",
-    "enum",
-    "extern",
     "float",
     "for",
-    "goto",
-    "if",
     "int",
     "long",
-    "register",
     "return",
     "short",
-    "signed",
-    "sizeof",
-    "static",
-    "struct",
-    "switch",
-    "typedef",
-    "union",
-    "unsigned",
     "void",
-    "volatile",
     "while"
   ]
 
@@ -136,6 +115,7 @@ pTerm =
         IntLiteral <$> L.decimal,
         CharLiteral <$> between (char '\'') (char '\'') L.charLiteral,
         try $ FunctionExpr <$> lexeme pIdent <*> between (symbol "(") (symbol ")") (pExpr `sepBy` symbol ","),
+        try $ ArrayExpr <$> lexeme pIdent <* symbol "[" <*> L.decimal <* symbol "]",
         try $ VariableExpr <$> pIdent,
         pParens pExpr
       ]
@@ -152,7 +132,8 @@ pStmt =
         pDoWhileStmt,
         pForStmt,
         pWhileStmt,
-        pVarDeclStmt,
+        try pVarDeclStmt,
+        pArrayDeclStmt,
         pExprStmt
       ]
 
@@ -162,6 +143,17 @@ pVarDeclStmt =
     <$> lexeme pType
     <*> lexeme pIdent
     <*> optional (symbol "=" *> lexeme pExpr)
+    <* symbol ";"
+
+pArrayDeclStmt :: Parser Stmt
+pArrayDeclStmt =
+  ArrayDeclStmt
+    <$> lexeme pType
+    <*> lexeme pIdent
+    <* symbol "["
+    <*> optional L.decimal
+    <* symbol "]"
+    <*> optional (symbol "=" *> between (symbol "{") (symbol "}") (pExpr `sepBy` symbol ","))
     <* symbol ";"
 
 pBreakStmt :: Parser Stmt
