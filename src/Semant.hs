@@ -6,6 +6,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import Data.Map (Map)
 import qualified Data.Map as M
+import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Sast
 import qualified Text.Printf as Text
@@ -145,19 +146,17 @@ analyseStmt (BlockStmt stmts) = do
 analyseStmt (VariableDeclStmt t1 ident expr) = do
   when (t1 == Void) $ throwError $ VoidError Variable ident
   vars' <- gets vars
-  case M.lookup ident vars' of
-    Nothing -> do
-      modify $ \env -> env {vars = M.insert ident (VariableDecl t1 ident expr) vars'}
-      case expr of
-        Just e -> do
-          sExpr@(t2, _) <- analyseExpr e
-          if t1 == t2
-            then do
-              modify $ \env -> env {vars = M.insert ident (VariableDecl t1 ident expr) vars'}
-              pure $ SVariableDeclStmt t1 ident (Just sExpr)
-            else throwError $ TypeError t1 t2
-        Nothing -> pure $ SVariableDeclStmt t1 ident Nothing
-    Just _ -> throwError $ RedefinitionError Variable ident
+  unless (isNothing $ M.lookup ident vars') $ throwError $ RedefinitionError Variable ident
+  modify $ \env -> env {vars = M.insert ident (VariableDecl t1 ident expr) vars'}
+  case expr of
+    Just e -> do
+      sExpr@(t2, _) <- analyseExpr e
+      if t1 == t2
+        then do
+          modify $ \env -> env {vars = M.insert ident (VariableDecl t1 ident expr) vars'}
+          pure $ SVariableDeclStmt t1 ident (Just sExpr)
+        else throwError $ TypeError t1 t2
+    Nothing -> pure $ SVariableDeclStmt t1 ident Nothing
 analyseStmt (ExprStmt expr) = do
   sExpr <- analyseExpr expr
   pure $ SExprStmt sExpr
