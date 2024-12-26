@@ -1,6 +1,5 @@
 module Main where
 
-import Preprocess (genHeader)
 import Codegen (codegenProgram)
 import qualified Data.Text.IO as IO
 import qualified Data.Text.IO as T
@@ -8,6 +7,7 @@ import Data.Text.Lazy
 import LLVM.Pretty (ppllvm)
 import Options.Applicative
 import Parser (pProgram)
+import Preprocess (genHeader)
 import Semant (analyseProgram)
 import System.Directory (removeFile)
 import System.Exit
@@ -75,30 +75,32 @@ main = do
 
   case runParser pProgram inFile source of
     Left err -> putStrLn (errorBundlePretty err) *> exitFailure
-    Right ast -> case analyseProgram ast of
-      Left err -> print err *> exitFailure
-      Right sast -> do
-        let output = case out of
-              FileOutput outFile -> outFile
-              DefaultOutput -> do
-                case inFile of
-                  "<stdin>" -> "out"
-                  _ ->
-                    takeBaseName inFile ++ case mode of
-                      Header -> ".h"
-                      LLVM -> ".ll"
-                      _ -> ""
-        case mode of
-          AST -> print sast
-          Header -> writeFile output $ genHeader ast
-          _ -> do
-            let llvm = unpack . ppllvm . codegenProgram $ sast
-
+    Right ast ->
+      if mode == AST
+        then print ast
+        else case analyseProgram ast of
+          Left err -> print err *> exitFailure
+          Right sast -> do
+            let output = case out of
+                  FileOutput outFile -> outFile
+                  DefaultOutput -> do
+                    case inFile of
+                      "<stdin>" -> "out"
+                      _ ->
+                        takeBaseName inFile ++ case mode of
+                          Header -> ".h"
+                          LLVM -> ".ll"
+                          _ -> ""
             case mode of
-              LLVM -> writeFile output llvm
-              Binary -> do
-                writeFile "temp.ll" llvm
-                -- putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
-                putStr =<< readProcess "clang-14" (["-w", "-lm", "temp.ll", "runtime.c", "-O2", "-o"] ++ [output]) llvm
-                removeFile "temp.ll"
-              _ -> error "error: unreachable"
+              Header -> writeFile output $ genHeader ast
+              _ -> do
+                let llvm = unpack . ppllvm . codegenProgram $ sast
+
+                case mode of
+                  LLVM -> writeFile output llvm
+                  Binary -> do
+                    writeFile "temp.ll" llvm
+                    -- putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
+                    putStr =<< readProcess "clang-14" (["-w", "-lm", "temp.ll", "runtime.c", "-O2", "-o"] ++ [output]) llvm
+                    removeFile "temp.ll"
+                  _ -> error "error: unreachable"
