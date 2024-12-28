@@ -59,6 +59,8 @@ codegenProgram (SProgram decls) =
           ("malloc", [AST.i32], AST.ptr AST.i8),
           ("free", [AST.ptr AST.i8], AST.void)
         ]
+      printf <- L.externVarArgs (AST.mkName "printf") [AST.ptr AST.i8] AST.i32
+      modify $ \env -> env {operands = M.insert "printf" printf (operands env)}
       mapM_ codegenDecl decls
 
 codegenLVal :: LVal -> Codegen AST.Operand
@@ -125,6 +127,13 @@ codegenExpr (_, SIntLiteral n) = pure $ L.int32 (fromIntegral n)
 codegenExpr (_, SFloatLiteral n) = pure $ L.double n
 codegenExpr (_, SBoolLiteral b) = pure $ L.bit $ if b then 1 else 0
 codegenExpr (_, SCharLiteral c) = pure $ L.int8 $ fromIntegral $ fromEnum c
+codegenExpr (_, SStringLiteral s) = do
+  let elems = unpack s ++ "\0"
+  let c = C.Array AST.i8 $ map (C.Int 8 . fromIntegral . fromEnum) (unpack s ++ "\0")
+  ty <- convType (Array Char (Just (length elems)))
+  addr <- L.alloca ty Nothing 0
+  L.store addr 0 (AST.ConstantOperand c)
+  L.gep addr [L.int64 0, L.int64 0]
 codegenExpr (t, SNull) = do
   ty <- convType t
   L.inttoptr (L.int64 0) ty
@@ -253,10 +262,6 @@ codegenExpr (_, SSizeOf t) =
     Void -> pure $ L.int32 0
     Pointer _ -> pure $ L.int32 8
     _ -> error "error: semant failed"
--- Array ty size -> do
---   base <- codegenExpr (Void, SSizeOf ty)
---   L.mul (L.int64 (fromIntegral size)) base
-codegenExpr e = error $ "error: codegen not implemented for expr " ++ show e
 
 codegenStmt :: SStmt -> Codegen ()
 codegenStmt (SExprStmt expr) = void $ codegenExpr expr

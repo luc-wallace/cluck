@@ -92,7 +92,8 @@ analyseProgram (Program decls) =
       [ ("printint", FunctionDecl Void "printint" [(Int, "")] Nothing),
         ("printfloat", FunctionDecl Void "printfloat" [(Float, "")] Nothing),
         ("malloc", FunctionDecl (Pointer Void) "malloc" [(Int, "")] Nothing),
-        ("free", FunctionDecl (Pointer Void) "free" [(Pointer Void, "")] Nothing)
+        ("free", FunctionDecl (Pointer Void) "free" [(Pointer Void, "")] Nothing),
+        ("printf", FunctionDecl Int "printf" [(Pointer Char, "")] Nothing)
       ]
     baseEnv = Env {vars = M.empty, funcs = M.fromList builtIns, curFunc = ("", Void), inLoop = False}
 
@@ -229,7 +230,7 @@ analyseExpr (FloatLiteral n) = pure (Float, SFloatLiteral n)
 analyseExpr (CharLiteral c) = pure (Char, SCharLiteral c)
 analyseExpr (BoolLiteral b) = pure (Bool, SBoolLiteral b)
 analyseExpr Null = pure (Pointer Void, SNull)
--- analyseExpr (StringLiteral s) = pure (String, SCharLiteral s)
+analyseExpr (StringLiteral s) = pure (Pointer Char, SStringLiteral s)
 analyseExpr (VariableExpr ident) = do
   vars' <- gets vars
   case M.lookup ident vars' of
@@ -251,6 +252,12 @@ analyseExpr (FunctionExpr "free" args) = do
   sAddr@(t, _) <- analyseExpr $ head args
   _ <- unwrapPointer t
   pure (Void, SFunctionExpr "free" [(Pointer t, SCast (Pointer Void) sAddr)])
+analyseExpr (FunctionExpr "printf" args) = do
+  when (null args) $ throwError $ ArgumentError "printf" 1 0
+  sArgs <- mapM analyseExpr args
+  let (t, _) = head sArgs
+  unless (t == Pointer Char) $ throwError $ TypeError (Pointer Char) t
+  pure (Int, SFunctionExpr "printf" sArgs)
 analyseExpr (FunctionExpr ident args) = do
   funcs' <- gets funcs
   case M.lookup ident funcs' of

@@ -20,10 +20,10 @@ Current:
 - Code generation for expressions and functions
 - Pointer types
 - Type casts
+- Arrays (1-dimensional)
 
 Future:
 
-- Arrays
 - Structs
 
 ## Resources used

@@ -119,6 +119,7 @@ pTerm =
       [ try $ Cast <$> lexeme (pParens pType) <*> pExpr,
         try $ FloatLiteral <$> L.float,
         try $ BoolLiteral <$> (True <$ string "true" <|> False <$ string "false"),
+        try $ StringLiteral . pack <$ char '\"' <*> manyTill L.charLiteral (char '\"'),
         try $ SizeOf <$ pWord "sizeof" <*> pParens pType,
         try $ Null <$ pWord "NULL",
         IntLiteral <$> L.decimal,
