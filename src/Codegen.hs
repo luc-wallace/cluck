@@ -31,8 +31,6 @@ type LLVM = L.ModuleBuilderT (State Env)
 
 type Codegen = L.IRBuilderT LLVM
 
--- use insertOperand helper
-
 convType :: MonadState Env m => Type -> m AST.Type
 convType (Pointer Void) = pure $ AST.ptr AST.i8
 convType t = case t of
@@ -41,7 +39,9 @@ convType t = case t of
   Char -> pure AST.i8
   Bool -> pure AST.i1
   Float -> pure AST.double
-  Pointer ty -> fmap AST.ptr (convType ty)
+  Pointer ty -> AST.ptr <$> convType ty
+  Array ty (Just size) -> AST.ArrayType (fromIntegral size) <$> convType ty
+  Array ty Nothing -> AST.ArrayType 0 <$> convType ty
 
 emitBuiltIn :: (Identifier, [AST.Type], AST.Type) -> LLVM ()
 emitBuiltIn (name, args, rett) = do
@@ -63,11 +63,19 @@ codegenProgram (SProgram decls) =
 
 codegenLVal :: LVal -> Codegen AST.Operand
 codegenLVal (LVar ident) = do
-  env <- get
-  case M.lookup ident (operands env) of
+  ops <- gets operands
+  case M.lookup ident ops of
     Just op -> pure op
     Nothing -> error "error: semant failed"
 codegenLVal (LDeref expr) = codegenExpr expr
+codegenLVal (LArray ident i) = do
+  index <- codegenExpr i
+  ops <- gets operands
+  case M.lookup ident ops of
+    Just op -> do
+      addr <- L.load op 0
+      L.gep addr [index]
+    Nothing -> error "error: semant failed"
 
 codegenDecl :: SDecl -> LLVM ()
 codegenDecl (SFunctionDecl t ident args b) = mdo
@@ -244,6 +252,10 @@ codegenExpr (_, SSizeOf t) =
     Bool -> pure $ L.int32 1
     Void -> pure $ L.int32 0
     Pointer _ -> pure $ L.int32 8
+    _ -> error "error: semant failed"
+-- Array ty size -> do
+--   base <- codegenExpr (Void, SSizeOf ty)
+--   L.mul (L.int64 (fromIntegral size)) base
 codegenExpr e = error $ "error: codegen not implemented for expr " ++ show e
 
 codegenStmt :: SStmt -> Codegen ()
@@ -296,6 +308,27 @@ codegenStmt (SVariableDeclStmt t ident expr) = do
     Just e -> do
       op <- codegenExpr e
       L.store addr 0 op
+codegenStmt (SArrayDeclStmt t ident size items) = do
+  ty <- convType (Array t (Just size))
+  addr <- L.alloca ty Nothing 0
+  decayTy <- convType (Pointer t)
+
+  decayPtr <- L.alloca decayTy Nothing 0 -- init decay pointer
+  decayVal <- L.gep addr [L.int64 0, L.int64 0]
+  L.store decayPtr 0 decayVal
+
+  modify $ \env -> env {operands = M.insert ident decayPtr (operands env)}
+  case items of
+    Nothing -> pure ()
+    Just arr -> do
+      ops <- mapM codegenExpr arr
+      mapM_ -- initialise array by storing each operand at its respective index
+        ( \(op, i) -> do
+            ep <- L.gep addr [L.int64 0, L.int64 i]
+            L.store ep 0 op
+            pure ()
+        )
+        $ zip ops [0 ..]
 codegenStmt SBreakStmt = do
   exit <- gets breakLabel
   L.br exit

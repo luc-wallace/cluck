@@ -94,11 +94,20 @@ pFuncDecl =
   FunctionDecl
     <$> lexeme pType
     <*> lexeme pIdent
-    <*> between (symbol "(") (symbol ")") (pFuncArg `sepBy` symbol ",")
+    <*> between (symbol "(") (symbol ")") ((try pArrayArg <|> pVarArg) `sepBy` symbol ",")
     <*> (Just <$> lexeme pBlockStmt <|> symbol ";" *> pure Nothing)
 
-pFuncArg :: Parser Arg
-pFuncArg = (,) <$> lexeme pType <*> lexeme pIdent
+pVarArg :: Parser Arg
+pVarArg = (,) <$> lexeme pType <*> lexeme pIdent
+
+pArrayArg :: Parser Arg
+pArrayArg = do
+  ty <- lexeme pType
+  ident <- lexeme pIdent
+  _ <- symbol "["
+  _ <- (optional . lexeme) L.decimal
+  _ <- symbol "]"
+  pure (Pointer ty, ident)
 
 pExpr :: Parser Expr
 pExpr = label "expression" (makeExprParser pTerm operatorTable)
@@ -115,7 +124,7 @@ pTerm =
         IntLiteral <$> L.decimal,
         CharLiteral <$> between (char '\'') (char '\'') L.charLiteral,
         try $ FunctionExpr <$> lexeme pIdent <*> between (symbol "(") (symbol ")") (pExpr `sepBy` symbol ","),
-        try $ ArrayExpr <$> lexeme pIdent <* symbol "[" <*> L.decimal <* symbol "]",
+        try $ ArrayExpr <$> lexeme pIdent <* symbol "[" <*> lexeme pExpr <* symbol "]",
         try $ VariableExpr <$> pIdent,
         pParens pExpr
       ]

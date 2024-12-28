@@ -12,6 +12,7 @@ data SDecl
 
 data SStmt
   = SVariableDeclStmt Type Identifier (Maybe SExpr)
+  | SArrayDeclStmt Type Identifier Int (Maybe [SExpr])
   | SBlockStmt [SStmt]
   | SExprStmt SExpr
   | SIfStmt SExpr SStmt SStmt
@@ -25,6 +26,7 @@ type SExpr = (Type, SExpr')
 
 data LVal
   = LVar Identifier
+  | LArray Identifier SExpr
   | LDeref SExpr
   deriving (Show, Eq)
 

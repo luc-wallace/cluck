@@ -6,7 +6,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe (isNothing)
+import Data.Maybe (fromJust, isNothing)
 import Data.Text (Text)
 import Sast
 import qualified Text.Printf as Text
@@ -43,6 +43,9 @@ data SemantError
   | CastError Type Type
   | LValError Oprt
   | BreakContError
+  | ArrayDefError Identifier
+  | ArrayInitError Identifier Int Int
+  | ArrayTypeError Identifier Type
 
 instance Show SemantError where
   show (NameError d ident) = Text.printf "error: %s '%s' is not defined" (dKind d) ident
@@ -60,6 +63,9 @@ instance Show SemantError where
   show (CastError t1 t2) = Text.printf "error: unable to type cast %s to %s" (show t2) (show t1)
   show (LValError op) = Text.printf "error: expected lval as argument to operator '%s'" (show op)
   show BreakContError = Text.printf "error: cannot use break/continue statement outside of a loop"
+  show (ArrayDefError ident) = Text.printf "error: array %s declared without size" ident
+  show (ArrayInitError ident size vals) = Text.printf "error: array %s of size %d initialised with %d values" ident size vals
+  show (ArrayTypeError ident t) = Text.printf "error: array %s initialised with non-%s value" ident (show t)
 
 isNumeric :: Type -> Bool
 isNumeric t = t `elem` [Int, Float, Char, Bool]
@@ -157,6 +163,23 @@ analyseStmt (VariableDeclStmt t1 ident expr) = do
           pure $ SVariableDeclStmt t1 ident (Just sExpr)
         else throwError $ TypeError t1 t2
     Nothing -> pure $ SVariableDeclStmt t1 ident Nothing
+analyseStmt (ArrayDeclStmt t1 ident size init') = do
+  vars' <- gets vars
+  unless (isNothing $ M.lookup ident vars') $ throwError $ RedefinitionError Variable ident
+  (size', items) <- case init' of
+    Nothing -> do
+      when (isNothing size) $ throwError $ ArrayDefError ident
+      pure (fromJust size, Nothing)
+    Just arr -> do
+      sArr <- mapM analyseExpr arr
+      unless (all ((== t1) . fst) sArr) $ throwError $ ArrayTypeError ident t1
+      case size of
+        Nothing -> pure (length sArr, Just sArr)
+        Just n -> do
+          when (n /= length sArr) $ throwError $ ArrayInitError ident n (length sArr)
+          pure (n, Just sArr)
+  modify $ \env -> env {vars = M.insert ident (VariableDecl (Pointer t1) ident Nothing) vars'}
+  pure $ SArrayDeclStmt t1 ident size' items
 analyseStmt (ExprStmt expr) = do
   sExpr <- analyseExpr expr
   pure $ SExprStmt sExpr
@@ -213,6 +236,16 @@ analyseExpr (VariableExpr ident) = do
     Nothing -> throwError $ NameError Variable ident
     Just (VariableDecl t _ _) -> pure (t, LVal (LVar ident))
     _ -> error "error: invalid env state"
+analyseExpr (ArrayExpr ident index) = do
+  vars' <- gets vars
+  sIndex@(ty, _) <- analyseExpr index
+  unless (ty == Int) $ throwError $ TypeError Int ty
+
+  case M.lookup ident vars' of
+    Nothing -> throwError $ NameError Variable ident
+    Just (VariableDecl (Pointer t) _ _) -> do
+      pure (t, LVal (LArray ident sIndex))
+    _ -> throwError $ NameError Variable ident
 analyseExpr (FunctionExpr "free" args) = do
   unless (length args == 1) $ throwError $ ArgumentError "free" 1 (length args)
   sAddr@(t, _) <- analyseExpr $ head args
@@ -235,9 +268,15 @@ analyseExpr (FunctionExpr ident args) = do
     analyseArg :: (Arg, Expr) -> Semant SExpr
     analyseArg ((t1, _), expr) = do
       e@(t2, _) <- analyseExpr expr
-      if t1 == t2
-        then pure e
-        else throwError $ TypeError t1 t2
+      case (t1, t2) of
+        (Array t1' _, Array t2' _) ->
+          if t1' == t2'
+            then pure e
+            else throwError $ TypeError t1 t2
+        _ ->
+          if t1 == t2
+            then pure e
+            else throwError $ TypeError t1 t2
 analyseExpr (BinaryOp Assign e1 e2) = do
   (t1, e) <- analyseExpr e1
   rhs@(t2, _) <- analyseExpr e2

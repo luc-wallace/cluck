@@ -13,7 +13,7 @@ data Type
   | Float
   | Void
   | Pointer Type
-  | Array Type Int
+  | Array Type (Maybe Int)
   deriving (Eq)
 
 instance Show Type where
@@ -23,7 +23,8 @@ instance Show Type where
   show Float = "float"
   show Void = "void"
   show (Pointer t) = show t ++ "*"
-  show (Array t size) = show t ++ "[" ++ show size ++ "]"
+  show (Array t (Just size)) = show t ++ "[" ++ show size ++ "]"
+  show (Array t Nothing) = show t ++ "[]"
 
 data Decl
   = VariableDecl Type Identifier (Maybe Expr)
@@ -59,7 +60,7 @@ data Expr
   | ArrayLiteral [Expr]
   | Null
   | VariableExpr Identifier
-  | ArrayExpr Identifier Int
+  | ArrayExpr Identifier Expr
   | FunctionExpr Identifier [Expr]
   | UnaryOp Oprt Expr
   | BinaryOp Oprt Expr Expr
