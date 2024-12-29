@@ -22,9 +22,16 @@ Current:
 - Type casts
 - Arrays (1-dimensional)
 
-Future:
+Built-in functions (no includes required):
 
-- Structs
+```c
+void* malloc(int);
+void free(void*);
+int scanf(char*, void*);
+int printf(char*, ...);
+double sqrt(double);
+double pow(double, double);
+```
 
 ## Resources used
 
