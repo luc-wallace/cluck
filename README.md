@@ -93,7 +93,8 @@ Use Ctrl + D to submit once typed.
 
 The [examples](examples) folder contains some supported programs used to test the compiler's capabilities.
 
-| Example                       | Description                                               |
-| ----------------------------- | --------------------------------------------------------- |
-| [primes.c](examples/primes.c) | An implementation of the Sieve of Eratosthenes algorithm. |
-| [merge.c](examples/merge.c)   | An implementation of Merge sort.                          |
+| Example                       | Description                                                             |
+| ----------------------------- | ----------------------------------------------------------------------- |
+| [primes.c](examples/primes.c) | An implementation of the Sieve of Eratosthenes algorithm.               |
+| [merge.c](examples/merge.c)   | An implementation of Merge sort.                                        |
+| [trig.c](examples/trig.c)     | The sin, cos and tan functions approximated using the Maclaurin Series. |
