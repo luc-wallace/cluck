@@ -93,10 +93,8 @@ analyseProgram (Program decls) =
   evalState (runExceptT (SProgram <$> mapM analyseDecl decls)) baseEnv
   where
     builtIns =
-      [ ("printint", FunctionDecl Void "printint" [(Int, "")] Nothing),
-        ("printfloat", FunctionDecl Void "printfloat" [(Float, "")] Nothing),
-        ("malloc", FunctionDecl (Pointer Void) "malloc" [(Int, "")] Nothing),
-        ("free", FunctionDecl (Pointer Void) "free" [(Pointer Void, "")] Nothing),
+      [ ("malloc", FunctionDecl (Pointer Void) "malloc" [(Int, "")] Nothing),
+        ("free", FunctionDecl Void "free" [(Pointer Void, "")] Nothing),
         ("scanf", FunctionDecl Int "scanf" [(Pointer Char, ""), (Pointer Void, "")] Nothing),
         ("printf", FunctionDecl Int "printf" [(Pointer Char, "")] Nothing),
         ("sqrt", FunctionDecl Float "sqrt" [(Float, "")] Nothing),
