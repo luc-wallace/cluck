@@ -57,7 +57,8 @@ codegenProgram (SProgram decls) =
         [ ("printint", [AST.i32], AST.void),
           ("printfloat", [AST.double], AST.void),
           ("malloc", [AST.i32], AST.ptr AST.i8),
-          ("free", [AST.ptr AST.i8], AST.void)
+          ("free", [AST.ptr AST.i8], AST.void),
+          ("scanf", [AST.ptr AST.i8, AST.ptr AST.i8], AST.i32)
         ]
       printf <- L.externVarArgs (AST.mkName "printf") [AST.ptr AST.i8] AST.i32
       modify $ \env -> env {operands = M.insert "printf" printf (operands env)}

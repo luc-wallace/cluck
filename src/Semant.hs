@@ -73,6 +73,10 @@ isNumeric t = t `elem` [Int, Float, Char, Bool]
 isLogical :: Oprt -> Bool
 isLogical op = op `elem` [Not, And, Or, EqTo, NtEqTo, Gt, GtOrEqTo, Lt, LtOrEqTo]
 
+isPointer :: Type -> Bool
+isPointer (Pointer _) = True
+isPointer _ = False
+
 unwrapPointer :: Type -> Semant Type
 unwrapPointer (Pointer t) = pure t
 unwrapPointer t = throwError $ TypeError (Pointer t) t
@@ -93,6 +97,7 @@ analyseProgram (Program decls) =
         ("printfloat", FunctionDecl Void "printfloat" [(Float, "")] Nothing),
         ("malloc", FunctionDecl (Pointer Void) "malloc" [(Int, "")] Nothing),
         ("free", FunctionDecl (Pointer Void) "free" [(Pointer Void, "")] Nothing),
+        ("scanf", FunctionDecl Int "scanf" [(Pointer Char, ""), (Pointer Void, "")] Nothing),
         ("printf", FunctionDecl Int "printf" [(Pointer Char, "")] Nothing)
       ]
     baseEnv = Env {vars = M.empty, funcs = M.fromList builtIns, curFunc = ("", Void), inLoop = False}
@@ -252,6 +257,14 @@ analyseExpr (FunctionExpr "free" args) = do
   sAddr@(t, _) <- analyseExpr $ head args
   _ <- unwrapPointer t
   pure (Void, SFunctionExpr "free" [(Pointer t, SCast (Pointer Void) sAddr)])
+analyseExpr (FunctionExpr "scanf" args) = do
+  unless (length args == 2) $ throwError $ ArgumentError "scanf" 2 (length args)
+  sArgs <- mapM analyseExpr args
+  let str@(t1, _) = head sArgs
+  let addr@(t2, _) = last sArgs
+  unless (t1 == Pointer Char) $ throwError $ TypeError (Pointer Char) t1
+  unless (isPointer t2) $ throwError $ TypeError (Pointer t2) t2
+  pure (Int, SFunctionExpr "scanf" [str, (Pointer Char, SCast (Pointer Char) addr)])
 analyseExpr (FunctionExpr "printf" args) = do
   when (null args) $ throwError $ ArgumentError "printf" 1 0
   sArgs <- mapM analyseExpr args
