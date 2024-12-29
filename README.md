@@ -89,4 +89,9 @@ Use Ctrl + D to submit once typed.
 
 # Examples
 
-Look in the [examples](examples) folder for some supported programs.
+The [examples](examples) folder contains some supported programs used to test the compiler's capabilities.
+
+| Example                       | Description                                               |
+| ----------------------------- | --------------------------------------------------------- |
+| [primes.c](examples/primes.c) | An implementation of the Sieve of Eratosthenes algorithm. |
+
