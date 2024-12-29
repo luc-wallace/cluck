@@ -99,7 +99,8 @@ analyseProgram (Program decls) =
         ("free", FunctionDecl (Pointer Void) "free" [(Pointer Void, "")] Nothing),
         ("scanf", FunctionDecl Int "scanf" [(Pointer Char, ""), (Pointer Void, "")] Nothing),
         ("printf", FunctionDecl Int "printf" [(Pointer Char, "")] Nothing),
-        ("sqrt", FunctionDecl Float "sqrt" [(Float, "")] Nothing)
+        ("sqrt", FunctionDecl Float "sqrt" [(Float, "")] Nothing),
+        ("pow", FunctionDecl Float "pow" [(Float, ""), (Float, "")] Nothing)
       ]
     baseEnv = Env {vars = M.empty, funcs = M.fromList builtIns, curFunc = ("", Void), inLoop = False}
 
