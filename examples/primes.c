@@ -1,29 +1,38 @@
 /*
 EXAMPLE: primes.c
 
-an EXTREMELY inefficient prime number generator which
-generates the first 10,000 primes
+implementation of the famous sieve of eratosthenes algorithm
+using my C dialect
 */
 
-bool isPrime(int n) {
-  int i;
-  for (i = 2; i < n; i++) {
-    if (n / i * i == n) {
-      return false;
-    } 
-  }
-  return true;
-}
+int main()
+{
+  int N;
+  printf("Enter N: ");
+  scanf("%d", &N);
 
-int main() {
-  int i;
-  int n = 0;
+  // allocate aray of N boolean values, all set to false
+  bool *A = (bool *)malloc(N * sizeof(bool));
 
-  for (i = 3; n < 10000; i++) {
-    if (isPrime(i)) {
-      printint(i);
-      n++;
+  int i;
+  int max = (int)sqrt((float)N);
+
+  for (i = 2; i < max; i++) {
+    if (!A[i]) {
+      int j = i * i;
+      while (j < N) {
+        A[j] = true; // A[j] is not prime
+        j = j + i;
+      }
     }
   }
+
+  // find all values in the array still set to false
+  for (i = 2; i < N; i++) {
+    if (!A[i]) {
+      printf("%d\n", i);
+    }
+  }
+
   return 0;
 }
