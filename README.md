@@ -94,4 +94,4 @@ The [examples](examples) folder contains some supported programs used to test th
 | Example                       | Description                                               |
 | ----------------------------- | --------------------------------------------------------- |
 | [primes.c](examples/primes.c) | An implementation of the Sieve of Eratosthenes algorithm. |
-
+| [merge.c](examples/merge.c)   | An implementation of Merge sort.                          |
