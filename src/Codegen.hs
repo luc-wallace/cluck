@@ -56,12 +56,12 @@ codegenProgram (SProgram decls) =
         emitBuiltIn
         [ ("malloc", [AST.i32], AST.ptr AST.i8),
           ("free", [AST.ptr AST.i8], AST.void),
-          ("scanf", [AST.ptr AST.i8, AST.ptr AST.i8], AST.i32),
           ("sqrt", [AST.double], AST.double),
           ("pow", [AST.double, AST.double], AST.double)
         ]
       printf <- L.externVarArgs (AST.mkName "printf") [AST.ptr AST.i8] AST.i32
-      modify $ \env -> env {operands = M.insert "printf" printf (operands env)}
+      scanf <- L.externVarArgs (AST.mkName "scanf") [AST.ptr AST.i8] AST.i32
+      modify $ \env -> env {operands = M.insert "scanf" scanf $ M.insert "printf" printf (operands env)}
       mapM_ codegenDecl decls
 
 codegenLVal :: LVal -> Codegen AST.Operand
@@ -222,7 +222,7 @@ codegenExpr (t, SUnaryOp op ex) = do
   case op of
     Neg -> case t of
       Int -> L.sub (L.int32 0) ex'
-      Float -> L.sub (L.double 0) ex'
+      Float -> L.fsub (L.double 0) ex'
       _ -> error "internal error: semant failed"
     Not -> L.xor ex' (L.bit 1)
     _ -> error "internal error: semant failed"
