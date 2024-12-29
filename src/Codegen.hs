@@ -54,9 +54,7 @@ codegenProgram (SProgram decls) =
     L.buildModuleT "cluck" $ do
       mapM_
         emitBuiltIn
-        [ ("printint", [AST.i32], AST.void),
-          ("printfloat", [AST.double], AST.void),
-          ("malloc", [AST.i32], AST.ptr AST.i8),
+        [ ("malloc", [AST.i32], AST.ptr AST.i8),
           ("free", [AST.ptr AST.i8], AST.void),
           ("scanf", [AST.ptr AST.i8, AST.ptr AST.i8], AST.i32),
           ("sqrt", [AST.double], AST.double),
