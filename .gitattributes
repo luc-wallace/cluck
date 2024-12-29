@@ -1,0 +1,3 @@
+examples/* linguist-vendored=false
+examples/* linguist-documentation=false
+examples/*.c linguist-language=C
