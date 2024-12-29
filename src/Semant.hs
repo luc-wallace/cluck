@@ -264,7 +264,7 @@ analyseExpr (FunctionExpr "scanf" args) = do
   let addr@(t2, _) = last sArgs
   unless (t1 == Pointer Char) $ throwError $ TypeError (Pointer Char) t1
   unless (isPointer t2) $ throwError $ TypeError (Pointer t2) t2
-  pure (Int, SFunctionExpr "scanf" [str, (Pointer Char, SCast (Pointer Char) addr)])
+  pure (Int, SFunctionExpr "scanf" [str, addr])
 analyseExpr (FunctionExpr "printf" args) = do
   when (null args) $ throwError $ ArgumentError "printf" 1 0
   sArgs <- mapM analyseExpr args
