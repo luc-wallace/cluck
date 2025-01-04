@@ -218,7 +218,19 @@ analyseStmt (DoWhileStmt stmt cond) = do
   unless (t == Bool) $ throwError $ TypeError Bool t
   unless inl $ modify $ \env -> env {inLoop = False}
   pure $ SDoWhileStmt sStmt sCond
-analyseStmt (ForStmt e1 e2 e3 stmt) = analyseStmt $ BlockStmt [ExprStmt e1, DoWhileStmt (BlockStmt [stmt, ExprStmt e3]) e2]
+analyseStmt (ForStmt e1 e2 e3 stmt) = do
+  inl <- gets inLoop
+  unless inl $ modify $ \env -> env {inLoop = True}
+
+  init' <- analyseExpr e1
+  cond@(t1, _) <- analyseExpr e2
+  inc <- analyseExpr e3
+  sstmt <- analyseStmt stmt
+
+  unless (t1 == Bool) $ throwError $ TypeError Bool t1
+
+  unless inl $ modify $ \env -> env {inLoop = False}
+  pure $ SForStmt (SExprStmt init') cond  (SExprStmt inc) sstmt
 analyseStmt (WhileStmt cond stmt) = analyseStmt $ IfStmt cond (DoWhileStmt stmt cond) Nothing
 analyseStmt BreakStmt = do
   inl <- gets inLoop

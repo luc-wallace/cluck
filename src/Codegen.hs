@@ -305,6 +305,25 @@ codegenStmt (SDoWhileStmt body cond) = mdo
   endBlock <- L.block `L.named` "end"
   modify $ const oldEnv
   pure ()
+codegenStmt (SForStmt init' cond inc body) = mdo
+  L.br bodyBlock
+  oldEnv <- get
+  modify $ \env -> env {breakLabel = endBlock, continueLabel = incBlock}
+
+  codegenStmt init'
+
+  bodyBlock <- L.block `L.named` "body"
+  codegenStmt body
+  c <- codegenExpr cond
+  mkTerminator $ L.condBr c incBlock endBlock
+
+  incBlock <- L.block `L.named` "inc"
+  codegenStmt inc
+  L.br bodyBlock
+
+  endBlock <- L.block `L.named` "end"
+  modify $ const oldEnv
+
 codegenStmt (SVariableDeclStmt t ident expr) = do
   ty <- convType t
   addr <- L.alloca ty Nothing 0

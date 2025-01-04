@@ -17,6 +17,7 @@ data SStmt
   | SExprStmt SExpr
   | SIfStmt SExpr SStmt SStmt
   | SDoWhileStmt SStmt SExpr
+  | SForStmt SStmt SExpr SStmt SStmt
   | SReturnStmt (Maybe SExpr)
   | SBreakStmt
   | SContinueStmt
