@@ -33,7 +33,7 @@ dKind Variable = "variable"
 data SemantError
   = NameError DeclKind Identifier
   | RedefinitionError DeclKind Identifier
-  | TypeError Type Type
+  | TypeError String Type Type
   | ArgumentError Identifier Int Int
   | BinaryOprtError Oprt Type Type
   | UnaryOprtError Oprt Type
@@ -50,7 +50,7 @@ data SemantError
 instance Show SemantError where
   show (NameError d ident) = Text.printf "error: %s '%s' is not defined" (dKind d) ident
   show (RedefinitionError d ident) = Text.printf "error: %s '%s' is redefined" (dKind d) ident
-  show (TypeError t1 t2) = Text.printf "error: expected %s but got %s" (show t1) (show t2)
+  show (TypeError msg t1 t2) = Text.printf "error: %s\nexpected %s but got %s" msg (show t1) (show t2)
   show (ArgumentError ident e g) = Text.printf "error: expected %d arguments in call to '%s(...)' but got %d" e ident g
   show (BinaryOprtError op t1 t2) = Text.printf "error: operation '%s' is not possible for types %s and %s" (show op) (show t1) (show t2)
   show (UnaryOprtError op t) = Text.printf "error: no instance of %s for operator '%s'" (show t) (show op)
@@ -63,9 +63,9 @@ instance Show SemantError where
   show (CastError t1 t2) = Text.printf "error: unable to type cast %s to %s" (show t2) (show t1)
   show (LValError op) = Text.printf "error: expected lval as argument to operator '%s'" (show op)
   show BreakContError = Text.printf "error: cannot use break/continue statement outside of a loop"
-  show (ArrayDefError ident) = Text.printf "error: array %s declared without size" ident
-  show (ArrayInitError ident size vals) = Text.printf "error: array %s of size %d initialised with %d values" ident size vals
-  show (ArrayTypeError ident t) = Text.printf "error: array %s initialised with non-%s value" ident (show t)
+  show (ArrayDefError ident) = Text.printf "error: array '%s[]' declared without size" ident
+  show (ArrayInitError ident size vals) = Text.printf "error: array '%s[]' of size %d initialised with %d values" ident size vals
+  show (ArrayTypeError ident t) = Text.printf "error: array '%s[]' initialised with non-%s value" ident (show t)
 
 isNumeric :: Type -> Bool
 isNumeric t = t `elem` [Int, Float, Char, Bool]
@@ -79,7 +79,7 @@ isPointer _ = False
 
 unwrapPointer :: Type -> Semant Type
 unwrapPointer (Pointer t) = pure t
-unwrapPointer t = throwError $ TypeError (Pointer t) t
+unwrapPointer t = throwError $ TypeError "couldn't unwrap pointer type" (Pointer t) t
 
 isConstant :: Expr -> Bool
 isConstant (IntLiteral _) = True
@@ -115,7 +115,7 @@ analyseDecl d@(VariableDecl t1 ident expr) = do
       sExpr@(t2, _) <- analyseExpr e
       if t1 == t2
         then pure $ SVariableDecl t1 ident (Just sExpr)
-        else throwError $ TypeError t1 t2
+        else throwError $ TypeError (Text.printf "variable '%s' initialised with incorrect type" ident) t1 t2
 
   modify $ \env -> env {vars = M.insert ident d vars'}
   pure sDecl
@@ -167,7 +167,7 @@ analyseStmt (VariableDeclStmt t1 ident expr) = do
         then do
           modify $ \env -> env {vars = M.insert ident (VariableDecl t1 ident expr) vars'}
           pure $ SVariableDeclStmt t1 ident (Just sExpr)
-        else throwError $ TypeError t1 t2
+        else throwError $ TypeError (Text.printf "variable '%s' initialised with incorrect type" ident) t1 t2
     Nothing -> pure $ SVariableDeclStmt t1 ident Nothing
 analyseStmt (ArrayDeclStmt t1 ident size init') = do
   vars' <- gets vars
@@ -191,7 +191,7 @@ analyseStmt (ExprStmt expr) = do
   pure $ SExprStmt sExpr
 analyseStmt (IfStmt expr t e) = do
   sExpr@(ty, _) <- analyseExpr expr
-  unless (ty == Bool) $ throwError $ TypeError Bool ty
+  unless (ty == Bool) $ throwError $ TypeError "invalid if-statement condition" Bool ty
 
   sThen <- analyseStmt t
   case e of
@@ -209,13 +209,13 @@ analyseStmt (ReturnStmt e) = do
       sExpr@(t, _) <- analyseExpr expr
       if rett == t
         then pure $ SReturnStmt (Just sExpr)
-        else throwError $ TypeError rett t
+        else throwError $ TypeError (Text.printf "function '%s(...)' has invalid return value" ident) rett t
 analyseStmt (DoWhileStmt stmt cond) = do
   inl <- gets inLoop
   unless inl $ modify $ \env -> env {inLoop = True}
   sStmt <- analyseStmt stmt
   sCond@(t, _) <- analyseExpr cond
-  unless (t == Bool) $ throwError $ TypeError Bool t
+  unless (t == Bool) $ throwError $ TypeError "invalid while-loop condition" Bool t
   unless inl $ modify $ \env -> env {inLoop = False}
   pure $ SDoWhileStmt sStmt sCond
 analyseStmt (ForStmt e1 e2 e3 stmt) = do
@@ -227,10 +227,10 @@ analyseStmt (ForStmt e1 e2 e3 stmt) = do
   inc <- analyseExpr e3
   sstmt <- analyseStmt stmt
 
-  unless (t1 == Bool) $ throwError $ TypeError Bool t1
+  unless (t1 == Bool) $ throwError $ TypeError "invalid for-loop condition" Bool t1
 
   unless inl $ modify $ \env -> env {inLoop = False}
-  pure $ SForStmt (SExprStmt init') cond  (SExprStmt inc) sstmt
+  pure $ SForStmt (SExprStmt init') cond (SExprStmt inc) sstmt
 analyseStmt (WhileStmt cond stmt) = analyseStmt $ IfStmt cond (DoWhileStmt stmt cond) Nothing
 analyseStmt BreakStmt = do
   inl <- gets inLoop
@@ -257,7 +257,7 @@ analyseExpr (VariableExpr ident) = do
 analyseExpr (ArrayExpr ident index) = do
   vars' <- gets vars
   sIndex@(ty, _) <- analyseExpr index
-  unless (ty == Int) $ throwError $ TypeError Int ty
+  unless (ty == Int) $ throwError $ TypeError (Text.printf "array '%s[]' indexed with invalid type" ident) Int ty
 
   case M.lookup ident vars' of
     Nothing -> throwError $ NameError Variable ident
@@ -274,14 +274,14 @@ analyseExpr (FunctionExpr "scanf" args) = do
   sArgs <- mapM analyseExpr args
   let str@(t1, _) = head sArgs
   let addr@(t2, _) = last sArgs
-  unless (t1 == Pointer Char) $ throwError $ TypeError (Pointer Char) t1
-  unless (isPointer t2) $ throwError $ TypeError (Pointer t2) t2
+  unless (t1 == Pointer Char) $ throwError $ TypeError "expected format string in arguments to scanf" (Pointer Char) t1
+  unless (isPointer t2) $ throwError $ TypeError "expected pointer in arguments to scanf" (Pointer t2) t2
   pure (Int, SFunctionExpr "scanf" [str, addr])
 analyseExpr (FunctionExpr "printf" args) = do
   when (null args) $ throwError $ ArgumentError "printf" 1 0
   sArgs <- mapM analyseExpr args
   let (t, _) = head sArgs
-  unless (t == Pointer Char) $ throwError $ TypeError (Pointer Char) t
+  unless (t == Pointer Char) $ throwError $ TypeError "expected format string in arguments to printf" (Pointer Char) t
   pure (Int, SFunctionExpr "printf" sArgs)
 analyseExpr (FunctionExpr ident args) = do
   funcs' <- gets funcs
@@ -293,26 +293,26 @@ analyseExpr (FunctionExpr ident args) = do
        in if expt - acc /= 0
             then throwError $ ArgumentError ident expt acc
             else do
-              sArgs <- mapM analyseArg $ zip args' args
+              sArgs <- mapM analyseArg $ zip [1..] $ zip args' args
               pure (t, SFunctionExpr ident sArgs)
     _ -> error "error: invalid env state"
   where
-    analyseArg :: (Arg, Expr) -> Semant SExpr
-    analyseArg ((t1, _), expr) = do
+    analyseArg :: (Int, (Arg, Expr)) -> Semant SExpr
+    analyseArg (n, ((t1, _), expr)) = do
       e@(t2, _) <- analyseExpr expr
       case (t1, t2) of
         (Array t1' _, Array t2' _) ->
           if t1' == t2'
             then pure e
-            else throwError $ TypeError t1 t2
+            else throwError $ TypeError (Text.printf "arg number %d has invalid type in call to '%s(...)'" n ident) t1 t2
         _ ->
           if t1 == t2
             then pure e
-            else throwError $ TypeError t1 t2
+            else throwError $ TypeError (Text.printf "arg number %d has invalid type in call to '%s(...)'" n ident) t1 t2
 analyseExpr (BinaryOp Assign e1 e2) = do
   (t1, e) <- analyseExpr e1
   rhs@(t2, _) <- analyseExpr e2
-  unless (t1 == t2) $ throwError $ TypeError t1 t2
+  unless (t1 == t2) $ throwError $ TypeError "cannot assign to mismatched types" t1 t2
   case e of
     LVal l -> pure (t1, SAssign l rhs)
     _ -> throwError $ LValError Assign
