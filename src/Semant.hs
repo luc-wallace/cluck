@@ -11,8 +11,6 @@ import Data.Text (Text)
 import Sast
 import qualified Text.Printf as Text
 
--- TODO: improve error messages
-
 type Semant = ExceptT SemantError (State Env)
 
 data Env = Env
