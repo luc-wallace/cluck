@@ -43,6 +43,17 @@ convType t = case t of
   Array ty (Just size) -> AST.ArrayType (fromIntegral size) <$> convType ty
   Array ty Nothing -> AST.ArrayType 0 <$> convType ty
 
+sizeof :: Type -> Int
+sizeof t = case t of
+  Char -> 1
+  Int -> 4
+  Float -> 8
+  Bool -> 1
+  Void -> 0
+  Pointer _ -> 8
+  Array t' (Just size) -> size * sizeof t'
+  _ -> error "error: semant failed"
+
 emitBuiltIn :: (Identifier, [AST.Type], AST.Type) -> LLVM ()
 emitBuiltIn (name, args, rett) = do
   func <- L.extern ((AST.mkName . unpack) name) args rett
@@ -254,15 +265,7 @@ codegenExpr (_, SCast t1 expr@(t2, _)) = do
     (Float, Int) -> L.sitofp op ty
     (Int, Float) -> L.fptosi op ty
     _ -> error "error: semant failed"
-codegenExpr (_, SSizeOf t) =
-  case t of
-    Char -> pure $ L.int32 1
-    Int -> pure $ L.int32 4
-    Float -> pure $ L.int32 8
-    Bool -> pure $ L.int32 1
-    Void -> pure $ L.int32 0
-    Pointer _ -> pure $ L.int32 8
-    _ -> error "error: semant failed"
+codegenExpr (_, SSizeOf t) = pure $ (L.int32 . fromIntegral . sizeof) t
 
 codegenStmt :: SStmt -> Codegen ()
 codegenStmt (SExprStmt expr) = void $ codegenExpr expr
@@ -323,7 +326,6 @@ codegenStmt (SForStmt init' cond inc body) = mdo
 
   endBlock <- L.block `L.named` "end"
   modify $ const oldEnv
-
 codegenStmt (SVariableDeclStmt t ident expr) = do
   ty <- convType t
   addr <- L.alloca ty Nothing 0

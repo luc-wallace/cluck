@@ -291,7 +291,7 @@ analyseExpr (FunctionExpr ident args) = do
        in if expt - acc /= 0
             then throwError $ ArgumentError ident expt acc
             else do
-              sArgs <- mapM analyseArg $ zip [1..] $ zip args' args
+              sArgs <- mapM analyseArg $ zip [1 ..] $ zip args' args
               pure (t, SFunctionExpr ident sArgs)
     _ -> error "error: invalid env state"
   where
@@ -368,5 +368,8 @@ analyseExpr (Cast t1 expr) = do
       (Int, Char) -> pure (Int, SCast Int sExpr)
       (Char, Int) -> pure (Char, SCast Char sExpr)
       _ -> throwError $ CastError t1 t2
-analyseExpr (SizeOf t) = pure (Int, SSizeOf t)
+analyseExpr (SizeOfType t) = pure (Int, SSizeOf t)
+analyseExpr (SizeOfExpr e) = do
+  (t, _) <- analyseExpr e
+  pure (Int, SSizeOf t)
 analyseExpr expr = error $ "error: expression not implemented " ++ show expr

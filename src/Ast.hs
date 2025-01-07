@@ -65,7 +65,8 @@ data Expr
   | UnaryOp Oprt Expr
   | BinaryOp Oprt Expr Expr
   | Cast Type Expr
-  | SizeOf Type
+  | SizeOfType Type
+  | SizeOfExpr Expr
   deriving (Show, Eq)
 
 data Oprt
