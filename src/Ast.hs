@@ -57,7 +57,6 @@ data Expr
   | IntLiteral Int
   | FloatLiteral Double
   | BoolLiteral Bool
-  | ArrayLiteral [Expr]
   | Null
   | VariableExpr Identifier
   | ArrayExpr Identifier Expr
