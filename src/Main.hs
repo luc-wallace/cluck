@@ -9,7 +9,7 @@ import Options.Applicative
 import Parser (pProgram)
 import Preprocess (genHeader)
 import Semant (analyseProgram)
-import System.Directory (removeFile)
+import System.Directory (findExecutable, removeFile)
 import System.Exit
 import System.FilePath
 import System.Process
@@ -99,8 +99,16 @@ main = do
                 case mode of
                   LLVM -> writeFile output llvm
                   Binary -> do
+                    clangExec <- findExecutable "clang-14"
+                    clang <- case clangExec of
+                      Just _ -> return "clang-14"
+                      Nothing -> do
+                        fallback <- findExecutable "clang"
+                        case fallback of
+                          Just _ -> return "clang"
+                          Nothing -> putStrLn "error: neither 'clang-14' nor 'clang' are installed on your system" *> exitFailure
                     writeFile "temp.ll" llvm
                     -- putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
-                    putStr =<< readProcess "clang-14" (["-w", "-lm", "temp.ll", "-O2", "-o"] ++ [output]) llvm
+                    putStr =<< readProcess clang (["-w", "-lm", "temp.ll", "-O2", "-o"] ++ [output]) llvm
                     removeFile "temp.ll"
                   _ -> error "error: unreachable"
