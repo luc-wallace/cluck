@@ -47,9 +47,7 @@ keywords =
     "float",
     "for",
     "int",
-    "long",
     "return",
-    "short",
     "void",
     "while"
   ]
