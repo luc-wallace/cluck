@@ -101,6 +101,6 @@ main = do
                   Binary -> do
                     writeFile "temp.ll" llvm
                     -- putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
-                    putStr =<< readProcess "clang-14" (["-w", "-lm", "temp.ll", "runtime.c", "-O2", "-o"] ++ [output]) llvm
+                    putStr =<< readProcess "clang-14" (["-w", "-lm", "temp.ll", "-O2", "-o"] ++ [output]) llvm
                     removeFile "temp.ll"
                   _ -> error "error: unreachable"
