@@ -26,8 +26,10 @@ data SStmt
   | SContinueStmt
   deriving (Show)
 
+-- defining the SExpr enables type information to be annotated onto the AST, enabling semantic analysis
 type SExpr = (Type, SExpr')
 
+-- an LVal is anything that can be on the left-hand side of an assignment expression
 data LVal
   = LVar Identifier
   | LArray Identifier SExpr
