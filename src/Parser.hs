@@ -11,6 +11,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void Text
 
+-- consumes whitespace and comments - functions as a lexer
 sc :: Parser ()
 sc = L.space space1 (L.skipLineComment "//") (L.skipBlockComment "/*" "*/")
 
@@ -29,6 +30,7 @@ integer = lexeme L.decimal
 nonDigit :: Parser Char
 nonDigit = alphaNumChar <|> char '_'
 
+-- runs a parser between parentheses
 pParens :: Parser a -> Parser a
 pParens = between (symbol "(") (symbol ")")
 
@@ -52,6 +54,7 @@ keywords =
     "while"
   ]
 
+-- checks that identifiers do not start with a number and are not a reserved keyword
 pIdent :: Parser Text
 pIdent = label "identifier" $ do
   ident <- (:) <$> letterChar <*> many nonDigit
@@ -68,12 +71,14 @@ pBaseType =
       Void <$ pWord "void"
     ]
 
+-- handles recursive pointer type definition
 pType :: Parser Type
 pType = do
   base <- pBaseType
   pointers <- many $ try $ space *> string "*"
   return $ foldr (const Pointer) base pointers
 
+-- parent parser
 pProgram :: Parser Program
 pProgram = Program <$ lexeme space <*> many (lexeme pDecl) <* eof
 
@@ -98,6 +103,7 @@ pFuncDecl =
 pVarArg :: Parser Arg
 pVarArg = (,) <$> lexeme pType <*> lexeme pIdent
 
+-- special case to handle array arguments to functions
 pArrayArg :: Parser Arg
 pArrayArg = do
   ty <- lexeme pType
@@ -107,9 +113,11 @@ pArrayArg = do
   _ <- symbol "]"
   pure (Pointer ty, ident)
 
+-- combines term parser with operator table
 pExpr :: Parser Expr
 pExpr = label "expression" (makeExprParser pTerm operatorTable)
 
+-- parses all basic expressions
 pTerm :: Parser Expr
 pTerm =
   lexeme $
@@ -208,6 +216,7 @@ pForStmt = do
 pWhileStmt :: Parser Stmt
 pWhileStmt = WhileStmt <$ pWord "while" <*> lexeme (pParens pExpr) <*> pStmt
 
+-- operator precedence table, operators at the top have highest priority and binding power with expressions
 operatorTable :: [[Operator Parser Expr]]
 operatorTable =
   [ [ prefix "*" $ UnaryOp Deref,
