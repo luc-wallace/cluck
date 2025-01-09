@@ -68,7 +68,7 @@ Requires LLVM 14 to be installed including Clang 14.
 On Ubuntu:
 
 ```
-sudo apt install llvm-14
+sudo apt install clang-14
 ```
 
 ```
