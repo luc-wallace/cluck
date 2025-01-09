@@ -63,6 +63,7 @@ options =
 
 main :: IO ()
 main = do
+  -- get user command line options
   Options inp out mode <- execParser options
 
   (inFile, source) <- case inp of
@@ -73,14 +74,21 @@ main = do
       content <- IO.getContents
       return ("<stdin>", content)
 
+  -- run parser on source file
   case runParser pProgram inFile source of
+    -- Left: parser failed
     Left err -> putStrLn (errorBundlePretty err) *> exitFailure
+    -- Right: parser succeeded
     Right ast ->
       if mode == AST
         then print ast
-        else case analyseProgram ast of
+        else -- run semantic analysis on AST
+        case analyseProgram ast of
+          -- Left: semant failed
           Left err -> print err *> exitFailure
+          -- Right: semant succeeded
           Right sast -> do
+            -- get output file name and extension
             let output = case out of
                   FileOutput outFile -> outFile
                   DefaultOutput -> do
@@ -99,6 +107,7 @@ main = do
                 case mode of
                   LLVM -> writeFile output llvm
                   Binary -> do
+                    -- check if clang-14 or clang is installed, else error
                     clangExec <- findExecutable "clang-14"
                     clang <- case clangExec of
                       Just _ -> return "clang-14"
@@ -107,8 +116,12 @@ main = do
                         case fallback of
                           Just _ -> return "clang"
                           Nothing -> putStrLn "error: neither 'clang-14' nor 'clang' are installed on your system" *> exitFailure
+
+                    -- write LLVM IR to temporary .ll file and delete it after clang has done its job
                     writeFile "temp.ll" llvm
-                    -- putStr =<< readProcess "clang-14" (["-w", "-x", "ir", "-", "-o"] ++ [output]) llvm
+
+                    -- use clang to compile .ll file with -O2 optimisation
                     putStr =<< readProcess clang (["-w", "-lm", "temp.ll", "-O2", "-o"] ++ [output]) llvm
+
                     removeFile "temp.ll"
                   _ -> error "error: unreachable"
