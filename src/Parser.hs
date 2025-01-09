@@ -138,6 +138,7 @@ pStmt =
         pBreakStmt,
         pContinueStmt,
         pIfStmt,
+        pSwitchStmt,
         pDoWhileStmt,
         pForStmt,
         pWhileStmt,
@@ -181,10 +182,16 @@ pBlockStmt :: Parser Stmt
 pBlockStmt = BlockStmt <$> between (symbol "{") (symbol "}") (many pStmt)
 
 pIfStmt :: Parser Stmt
-pIfStmt = IfStmt <$ pWord "if" <*> lexeme (pParens pExpr) <*> lexeme pStmt <*> optional (pWord "else" *> pStmt)
+pIfStmt = IfStmt <$ pWord "if" <*> lexeme (pParens pExpr) <*> pStmt <*> optional (pWord "else" *> pStmt)
+
+pSwitchStmt :: Parser Stmt
+pSwitchStmt = SwitchStmt <$ pWord "switch" <*> lexeme (pParens pExpr) <*> between (symbol "{") (symbol "}") (many pSwitchCase)
+
+pSwitchCase :: Parser SwitchCase
+pSwitchCase = SwitchCase <$ pWord "case" <*> lexeme pExpr <* symbol ":" <*> many pStmt
 
 pDoWhileStmt :: Parser Stmt
-pDoWhileStmt = DoWhileStmt <$ pWord "do" <*> lexeme pStmt <* pWord "while" <*> lexeme (pParens pExpr) <* symbol ";"
+pDoWhileStmt = DoWhileStmt <$ pWord "do" <*> pStmt <* pWord "while" <*> lexeme (pParens pExpr) <* symbol ";"
 
 pForStmt :: Parser Stmt
 pForStmt = do
@@ -196,7 +203,7 @@ pForStmt = do
     _ <- symbol ";"
     e3 <- lexeme pExpr
     return (e1, e2, e3)
-  ForStmt e1 e2 e3 <$> lexeme pStmt
+  ForStmt e1 e2 e3 <$> pStmt
 
 pWhileStmt :: Parser Stmt
 pWhileStmt = WhileStmt <$ pWord "while" <*> lexeme (pParens pExpr) <*> pStmt

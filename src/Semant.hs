@@ -44,6 +44,7 @@ data SemantError
   | ArrayDefError Identifier
   | ArrayInitError Identifier Int Int
   | ArrayTypeError Identifier Type
+  | SwitchError
 
 instance Show SemantError where
   show (NameError d ident) = Text.printf "error: %s '%s' is not defined" (dKind d) ident
@@ -64,6 +65,7 @@ instance Show SemantError where
   show (ArrayDefError ident) = Text.printf "error: array '%s[]' declared without size" ident
   show (ArrayInitError ident size vals) = Text.printf "error: array '%s[]' of size %d initialised with %d values" ident size vals
   show (ArrayTypeError ident t) = Text.printf "error: array '%s[]' initialised with non-%s value" ident (show t)
+  show SwitchError = Text.printf "error: switch case expression must have a constant value"
 
 isNumeric :: Type -> Bool
 isNumeric t = t `elem` [Int, Float, Char, Bool]
@@ -197,6 +199,18 @@ analyseStmt (IfStmt expr t e) = do
     Just stmt -> do
       s <- analyseStmt stmt
       pure $ SIfStmt sExpr sThen s
+analyseStmt (SwitchStmt e cases) = do
+  sExpr@(t, _) <- analyseExpr e
+  sCases <- mapM (analyseCase t) cases
+  pure $ SSwitchStmt sExpr sCases
+  where
+    analyseCase :: Type -> SwitchCase -> Semant SSwitchCase
+    analyseCase t (SwitchCase e' stmts) = do
+      sExpr'@(t', _) <- analyseExpr e'
+      when (t /= t') $ throwError $ TypeError "invalid switch case" t t'
+      unless (isConstant e') $ throwError SwitchError
+      sstmts <- mapM analyseStmt stmts
+      pure $ SSwitchCase sExpr' sstmts
 analyseStmt (ReturnStmt e) = do
   (ident, rett) <- gets curFunc
   case (e, rett) of

@@ -8,10 +8,8 @@ Generates LLVM IR, uses Clang as a backend.
 
 ## Features
 
-Current:
-
 - Variable and function declarations
-- Return, if, for, while and do-while statements
+- Return, if, for, while, do-while and switch statements
 - Expressions and precedence
 - Number, char and float literals
 - Binary and unary operators (most implemented)
@@ -33,6 +31,18 @@ double sqrt(double);
 double pow(double, double);
 ```
 
+## Differences with C
+
+Although Cluck implements a language extremely similar to C, there are a few notable language differences:
+- there is no preprocessor, the built-in functions are implicitly imported into every program
+- `float` is implemented as a `double` underneath, this means %lf must be used in format strings
+- `bool` is implemented as a primitive type
+- switch statements have implicit fallthrough and there is no `default` case
+- arrays decay in the scope they are defined in to a single pointer, this means that `sizeof` does not work as expected
+- arrays cannot be defined in more than 1 dimension
+- there is no implicit casting with literal expressions, so if the value 0 wants to be used in a float expression
+  then it must be initialised as '0.0' or casted explicitly
+ 
 ## Resources used
 
 [C89 Draft](https://port70.net/%7Ensz/c/c89/c89-draft.html)

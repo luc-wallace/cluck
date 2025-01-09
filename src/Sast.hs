@@ -10,12 +10,15 @@ data SDecl
   | SFunctionDecl Type Identifier [Arg] SStmt
   deriving (Show)
 
+data SSwitchCase = SSwitchCase SExpr [SStmt] deriving (Show)
+
 data SStmt
   = SVariableDeclStmt Type Identifier (Maybe SExpr)
   | SArrayDeclStmt Type Identifier Int (Maybe [SExpr])
   | SBlockStmt [SStmt]
   | SExprStmt SExpr
   | SIfStmt SExpr SStmt SStmt
+  | SSwitchStmt SExpr [SSwitchCase]
   | SDoWhileStmt SStmt SExpr
   | SForStmt SStmt SExpr SStmt SStmt
   | SReturnStmt (Maybe SExpr)

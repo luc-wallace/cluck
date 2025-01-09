@@ -295,6 +295,24 @@ codegenStmt (SIfStmt cond t e) = mdo
 
   mergeBlock <- L.block `L.named` "merge"
   pure ()
+codegenStmt (SSwitchStmt e cs') = mdo
+  cond <- codegenExpr e
+  L.switch cond epilogBlock cases
+  cases <- mapM (genCase epilogBlock) cs'
+  epilogBlock <- L.block `L.named` "epilog"
+  pure ()
+  where
+    genCase epilog (SSwitchCase (_, val) stmts) = do
+      l <- L.block `L.named` "case"
+      mapM_ codegenStmt stmts
+      mkTerminator $ L.br epilog
+      let c = case val of
+            SIntLiteral n -> C.Int 32 (fromIntegral n)
+            SCharLiteral n -> C.Int 8 $ (fromIntegral . fromEnum) n
+            SFloatLiteral f -> C.Float $ F.Double f
+            SBoolLiteral b -> if b then C.Int 1 1 else C.Int 1 0
+            _ -> error "error: semant failed"
+      pure (c, l)
 codegenStmt (SDoWhileStmt body cond) = mdo
   L.br bodyBlock
   oldEnv <- get

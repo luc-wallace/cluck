@@ -37,12 +37,15 @@ declTy (FunctionDecl t _ _ _) = t
 
 type Arg = (Type, Identifier)
 
+data SwitchCase = SwitchCase Expr [Stmt] deriving (Show)
+
 data Stmt
   = VariableDeclStmt Type Identifier (Maybe Expr)
   | ArrayDeclStmt Type Identifier (Maybe Int) (Maybe [Expr])
   | BlockStmt [Stmt]
   | ExprStmt Expr
   | IfStmt Expr Stmt (Maybe Stmt)
+  | SwitchStmt Expr [SwitchCase]
   | DoWhileStmt Stmt Expr
   | ForStmt Expr Expr Expr Stmt
   | WhileStmt Expr Stmt
