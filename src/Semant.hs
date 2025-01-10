@@ -170,7 +170,7 @@ analyseStmt (BlockStmt stmts) = do
 analyseStmt (VariableDeclStmt t1 ident expr) = do
   when (t1 == Void) $ throwError $ VoidError Variable ident
   vars' <- gets vars
-  unless (isNothing $ M.lookup ident vars') $ throwError $ RedefinitionError Variable ident
+  when (isRedefined vars' ident) $ throwError $ RedefinitionError Variable ident
   modify $ \env -> env {vars = M.insert ident (VariableDecl t1 ident expr) vars'}
   case expr of
     Just e -> do
@@ -183,7 +183,7 @@ analyseStmt (VariableDeclStmt t1 ident expr) = do
     Nothing -> pure $ SVariableDeclStmt t1 ident Nothing
 analyseStmt (ArrayDeclStmt t1 ident size init') = do
   vars' <- gets vars
-  unless (isNothing $ M.lookup ident vars') $ throwError $ RedefinitionError Variable ident
+  when (isRedefined vars' ident) $ throwError $ RedefinitionError Variable ident
   (size', items) <- case init' of
     Nothing -> do
       -- if the array was not initialised with values
