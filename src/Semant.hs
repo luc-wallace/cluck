@@ -50,7 +50,7 @@ data SemantError
 instance Show SemantError where
   show (NameError d ident) = Text.printf "error: %s '%s' is not defined" (dKind d) ident
   show (RedefinitionError d ident) = Text.printf "error: %s '%s' is redefined" (dKind d) ident
-  show (TypeError msg t1 t2) = Text.printf "error: %s\nexpected %s but got %s" msg (show t1) (show t2)
+  show (TypeError msg t1 t2) = Text.printf "error: %s\n       expected %s but got %s" msg (show t1) (show t2)
   show (ArgumentError ident e g) = Text.printf "error: expected %d arguments in call to '%s(...)' but got %d" e ident g
   show (BinaryOprtError op t1 t2) = Text.printf "error: operation '%s' is not possible for types %s and %s" (show op) (show t1) (show t2)
   show (UnaryOprtError op t) = Text.printf "error: no instance of %s for operator '%s'" (show t) (show op)
