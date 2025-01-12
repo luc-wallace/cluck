@@ -5,8 +5,7 @@ implementation of the famous sieve of eratosthenes algorithm
 using my C dialect
 */
 
-int main()
-{
+int main() {
   int N;
   printf("Enter N: ");
   scanf("%d", &N);
@@ -17,10 +16,10 @@ int main()
   int i;
   int max = (int)sqrt((float)N);
 
-  for (i = 2; i < max; i++) {
+  for (i = 2; i <= max; i++) {
     if (!A[i]) {
       int j = i * i;
-      while (j < N) {
+      while (j <= N) {
         A[j] = true; // A[j] is not prime
         j = j + i;
       }
