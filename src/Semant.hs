@@ -1,6 +1,6 @@
 module Semant where
 
-import Analysis
+import Cfg
 import Ast
 import Control.Monad.Except
 import Control.Monad.State

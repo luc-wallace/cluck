@@ -1,4 +1,4 @@
-module Analysis where
+module Cfg where
 
 import Ast
 
