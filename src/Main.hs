@@ -1,5 +1,6 @@
 module Main where
 
+import Ast (genHeader)
 import Codegen (codegenProgram)
 import qualified Data.Text.IO as IO
 import qualified Data.Text.IO as T
@@ -7,7 +8,6 @@ import Data.Text.Lazy
 import LLVM.Pretty (ppllvm)
 import Options.Applicative
 import Parser (pProgram)
-import Preprocess (genHeader)
 import Semant (analyseProgram)
 import System.Directory (findExecutable, removeFile)
 import System.Exit

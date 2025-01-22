@@ -265,7 +265,6 @@ analyseStmt (ForStmt e1 e2 e3 stmt) = do
   sstmt <- analyseStmt stmt
 
   unless (t1 == Bool) $ throwError $ TypeError "invalid for-loop condition" Bool t1
-
   unless inl $ modify $ \env -> env {inLoop = False}
   pure $ SForStmt (SExprStmt init') cond (SExprStmt inc) sstmt
 -- while loops can be transformed into do-while loops
