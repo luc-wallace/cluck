@@ -56,9 +56,9 @@ pMode =
 options :: ParserInfo Options
 options =
   info
-    (Options <$> pInput <*> pOutput <*> pMode)
+    (Options <$> pInput <*> pOutput <*> pMode <**> helper)
     ( fullDesc
-        <> header "cluck - a tiny c compiler"
+        <> header "Cluck - a tiny c compiler"
     )
 
 main :: IO ()

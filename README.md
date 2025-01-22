@@ -99,6 +99,8 @@ Use Ctrl + D to submit once typed.
 
 `-S` - Output LLVM IR
 
+`--help` - Output help page
+
 ## Examples
 
 The [examples](examples) folder contains some supported programs used to test the compiler's capabilities.
