@@ -15,8 +15,6 @@ import System.FilePath
 import System.Process
 import Text.Megaparsec
 
--- TODO: check if clang is installed
-
 data Input
   = FileInput FilePath
   | StdInput
