@@ -90,7 +90,7 @@ codegenProgram (SProgram decls) =
       modify $ \env -> env {operands = M.insert "scanf" scanf $ M.insert "printf" printf (operands env)}
       mapM_ codegenDecl decls
 
--- returns the memory adddress of an LVal, anything on the left-hand side of an assignment expression
+-- returns the memory address of an LVal, anything on the left-hand side of an assignment expression
 codegenLVal :: LVal -> Codegen AST.Operand
 codegenLVal (LVar ident) = do
   ops <- gets operands
