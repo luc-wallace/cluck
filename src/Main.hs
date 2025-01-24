@@ -89,14 +89,16 @@ main = do
             -- get output file name and extension
             let output = case out of
                   FileOutput outFile -> outFile
-                  DefaultOutput -> do
-                    case inFile of
-                      "<stdin>" -> "out"
-                      _ ->
-                        takeBaseName inFile ++ case mode of
-                          Header -> ".h"
-                          LLVM -> ".ll"
-                          _ -> ""
+                  DefaultOutput ->
+                    ( case inFile of
+                        "<stdin>" -> "out"
+                        _ ->
+                          takeBaseName inFile
+                    )
+                      ++ case mode of
+                        Header -> ".h"
+                        LLVM -> ".ll"
+                        _ -> ""
             case mode of
               Header -> writeFile output $ genHeader ast
               _ -> do
