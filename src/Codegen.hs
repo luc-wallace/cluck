@@ -108,7 +108,8 @@ codegenLVal (LArray ident i) = do
     Nothing -> error "error: semant failed"
 
 codegenDecl :: SDecl -> LLVM ()
-codegenDecl (SFunctionDecl t ident args b) = mdo
+codegenDecl (SFunctionDecl _ _ _ Nothing) = pure () -- ignore function prototypes
+codegenDecl (SFunctionDecl t ident args (Just b)) = mdo
   {- mdo is used for recursive definitions, the function needs to be added to the Env before codegen so that
      the function can call itself recursively -}
   modify $ \env -> env {operands = M.insert ident function (operands env)} -- add memory address to env
@@ -300,7 +301,6 @@ codegenStmt (SBlockStmt stmts) = do
 codegenStmt (SIfStmt cond t e) = mdo
   c <- codegenExpr cond
   L.condBr c thenBlock elseBlock -- goes to thenBlock if condition is true else elseBlock
-
   thenBlock <- L.block `L.named` "then"
   codegenStmt t
   mkTerminator $ L.br mergeBlock
@@ -349,7 +349,7 @@ codegenStmt (SForStmt init' cond inc body) = mdo
   c <- codegenExpr cond
   mkTerminator $ L.condBr c incBlock endBlock
 
-  -- for loops have a separate inc block to ensure that the loop increments when a continue statement is run 
+  -- for loops have a separate inc block to ensure that the loop increments when a continue statement is run
   incBlock <- L.block `L.named` "inc"
   codegenStmt inc
   L.br bodyBlock

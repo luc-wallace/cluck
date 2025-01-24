@@ -137,13 +137,13 @@ analyseDecl d@(FunctionDecl t ident args stmt) = do
     throwError $ RedefinitionError Function ident
 
   sDecl <- case stmt of
-    Nothing -> pure $ SFunctionDecl t ident args (SBlockStmt [])
+    Nothing -> pure $ SFunctionDecl t ident args Nothing
     Just s@(BlockStmt stmts) -> do
       sStmt <- analyseStmt s
       -- use control flow graph to ensure that the function returns in all cases - unless it is void
       unless (t == Void || validate (genCFG stmts)) $ throwError $ ReturnError ident t
 
-      pure $ SFunctionDecl t ident args sStmt
+      pure $ SFunctionDecl t ident args (Just sStmt)
     _ -> error "error: parse failed"
 
   modify $ \env -> env {vars = vars'}

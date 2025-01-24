@@ -7,7 +7,7 @@ newtype SProgram = SProgram [SDecl] deriving (Show)
 
 data SDecl
   = SVariableDecl Type Identifier (Maybe SExpr)
-  | SFunctionDecl Type Identifier [Arg] SStmt
+  | SFunctionDecl Type Identifier [Arg] (Maybe SStmt)
   deriving (Show)
 
 data SSwitchCase = SSwitchCase SExpr [SStmt] deriving (Show)
