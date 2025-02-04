@@ -73,7 +73,7 @@ pBaseType =
 
 -- handles recursive pointer type definition
 pType :: Parser Type
-pType = do
+pType = label "type specifier" $ do
   base <- pBaseType
   pointers <- many $ try $ space *> string "*"
   return $ foldr (const Pointer) base pointers
@@ -101,7 +101,7 @@ pFuncDecl =
     <*> (Just <$> lexeme pBlockStmt <|> symbol ";" *> pure Nothing)
 
 pVarArg :: Parser Arg
-pVarArg = (,) <$> lexeme pType <*> lexeme pIdent
+pVarArg = label "parameter" $ (,) <$> lexeme pType <*> lexeme pIdent
 
 -- special case to handle array arguments to functions
 pArrayArg :: Parser Arg
@@ -119,7 +119,7 @@ pExpr = label "expression" (makeExprParser pTerm operatorTable)
 
 -- parses all basic expressions
 pTerm :: Parser Expr
-pTerm =
+pTerm = label "term expression" $
   lexeme $
     choice
       [ try $ Cast <$> lexeme (pParens pType) <*> pExpr,
@@ -249,8 +249,8 @@ operatorTable =
   ]
 
 binary :: Text -> (Expr -> Expr -> Expr) -> Operator Parser Expr
-binary name f = InfixL (f <$ symbol name)
+binary name f = InfixL (label "infix expression" $ f <$ symbol name)
 
 prefix, postfix :: Text -> (Expr -> Expr) -> Operator Parser Expr
-prefix name f = Prefix (f <$ symbol name)
-postfix name f = Postfix (f <$ symbol name)
+prefix name f = Prefix (label "prefix expression" $ f <$ symbol name)
+postfix name f = Postfix (label "postfix expression" $ f <$ symbol name)
