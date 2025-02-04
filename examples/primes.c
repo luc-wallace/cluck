@@ -29,9 +29,10 @@ int main() {
   // find all values in the array still set to false
   for (i = 2; i < N; i++) {
     if (!A[i]) {
-      printf("%d\n", i);
+      printf("%d ", i);
     }
   }
+  printf("\n");
 
   free(A);
 
