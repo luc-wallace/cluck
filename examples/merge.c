@@ -74,6 +74,7 @@ int main() {
 
   if (n < 1) {
     printf("size of array must be greater than 0\n");
+    return 1;
   }
 
   int *arr = (int *)malloc(n * sizeof(int));
