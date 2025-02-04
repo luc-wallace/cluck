@@ -69,12 +69,16 @@ void mergeSort(int *arr, int left, int right) {
 
 int main() {
   int n;
-  printf("Enter the number of elements: ");
+  printf("enter the number of elements: ");
   scanf("%d", &n);
+
+  if (n < 1) {
+    printf("size of array must be greater than 0\n");
+  }
 
   int *arr = (int *)malloc(n * sizeof(int));
 
-  printf("Enter the elements: \n");
+  printf("enter elements: \n");
   int i;
   for (i = 0; i < n - 1; i++) {
     scanf("%d", &arr[i]);
@@ -82,7 +86,7 @@ int main() {
 
   mergeSort(arr, 0, n - 1);
 
-  printf("Sorted array: \n");
+  printf("sorted array: \n");
   for (i = 0; i < n - 1; i++) {
     printf("%d ", arr[i]);
   }
