@@ -10,6 +10,11 @@ int main() {
   printf("Enter N: ");
   scanf("%d", &N);
 
+  if (N < 2) {
+    printf("N must be greater than 1\n");
+    return 1;
+  }
+
   // allocate aray of N boolean values, all set to false
   bool *A = (bool *)malloc(N * sizeof(bool));
 
