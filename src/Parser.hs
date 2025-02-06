@@ -119,41 +119,43 @@ pExpr = label "expression" (makeExprParser pTerm operatorTable)
 
 -- parses all basic expressions
 pTerm :: Parser Expr
-pTerm = label "term expression" $
-  lexeme $
-    choice
-      [ try $ Cast <$> lexeme (pParens pType) <*> pExpr,
-        try $ FloatLiteral <$> L.float,
-        try $ BoolLiteral <$> (True <$ string "true" <|> False <$ string "false"),
-        try $ StringLiteral . pack <$ char '\"' <*> manyTill L.charLiteral (char '\"'),
-        try $ SizeOfType <$ pWord "sizeof" <*> pParens pType,
-        try $ SizeOfExpr <$ pWord "sizeof" <*> pParens pExpr,
-        try $ Null <$ pWord "NULL",
-        IntLiteral <$> L.decimal,
-        CharLiteral <$> between (char '\'') (char '\'') L.charLiteral,
-        try $ FunctionExpr <$> lexeme pIdent <*> between (symbol "(") (symbol ")") (pExpr `sepBy` symbol ","),
-        try $ ArrayExpr <$> lexeme pIdent <* symbol "[" <*> lexeme pExpr <* symbol "]",
-        try $ VariableExpr <$> pIdent,
-        pParens pExpr
-      ]
+pTerm =
+  label "term expression" $
+    lexeme $
+      choice
+        [ try $ Cast <$> lexeme (pParens pType) <*> pExpr,
+          try $ FloatLiteral <$> L.float,
+          try $ BoolLiteral <$> (True <$ string "true" <|> False <$ string "false"),
+          try $ StringLiteral . pack <$ char '\"' <*> manyTill L.charLiteral (char '\"'),
+          try $ SizeOfType <$ pWord "sizeof" <*> pParens pType,
+          try $ SizeOfExpr <$ pWord "sizeof" <*> pParens pExpr,
+          try $ Null <$ pWord "NULL",
+          IntLiteral <$> L.decimal,
+          CharLiteral <$> between (char '\'') (char '\'') L.charLiteral,
+          try $ FunctionExpr <$> lexeme pIdent <*> between (symbol "(") (symbol ")") (pExpr `sepBy` symbol ","),
+          try $ ArrayExpr <$> lexeme pIdent <* symbol "[" <*> lexeme pExpr <* symbol "]",
+          try $ VariableExpr <$> pIdent,
+          pParens pExpr
+        ]
 
 pStmt :: Parser Stmt
 pStmt =
-  lexeme $
-    choice
-      [ pBlockStmt,
-        pReturnStmt,
-        pBreakStmt,
-        pContinueStmt,
-        pIfStmt,
-        pSwitchStmt,
-        pDoWhileStmt,
-        pForStmt,
-        pWhileStmt,
-        try pVarDeclStmt,
-        pArrayDeclStmt,
-        pExprStmt
-      ]
+  label "statement" $
+    lexeme $
+      choice
+        [ pBlockStmt,
+          pReturnStmt,
+          pBreakStmt,
+          pContinueStmt,
+          pIfStmt,
+          pSwitchStmt,
+          pDoWhileStmt,
+          pForStmt,
+          pWhileStmt,
+          try pVarDeclStmt,
+          pArrayDeclStmt,
+          pExprStmt
+        ]
 
 pVarDeclStmt :: Parser Stmt
 pVarDeclStmt =
