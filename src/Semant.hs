@@ -37,7 +37,7 @@ data SemantError
   | BinaryOprtError Oprt Type Type
   | UnaryOprtError Oprt Type
   | VoidError DeclKind Identifier
-  | ReturnError Identifier Type
+  | ReturnError Identifier
   | ConstantError Identifier
   | CastError Type Type
   | LValError Oprt
@@ -57,8 +57,7 @@ instance Show SemantError where
   show (VoidError d ident) = case d of
     Function -> Text.printf "error: unexpected return statement in function '%s(...)' of type void" ident
     Variable -> Text.printf "error: variable '%s' cannot have type void" ident
-  show (ReturnError ident Void) = Text.printf "error: void function '%s(...)' cannot return a value" ident
-  show (ReturnError ident _) = Text.printf "error: non-void function '%s(...)' does not return a value in all control paths" ident
+  show (ReturnError ident) = Text.printf "error: non-void function '%s(...)' does not return a value in all control paths" ident
   show (ConstantError ident) = Text.printf "error: global variable '%s' must have a constant value" ident
   show (CastError t1 t2) = Text.printf "error: unable to type cast %s to %s" (show t2) (show t1)
   show (LValError op) = Text.printf "error: expected lval as argument to operator '%s'" (show op)
@@ -141,7 +140,7 @@ analyseDecl d@(FunctionDecl t ident args stmt) = do
     Just s@(BlockStmt stmts) -> do
       sStmt <- analyseStmt s
       -- use control flow graph to ensure that the function returns in all cases - unless it is void
-      unless (t == Void || validate (genCFG stmts)) $ throwError $ ReturnError ident t
+      unless (t == Void || validate (genCFG stmts)) $ throwError $ ReturnError ident
 
       pure $ SFunctionDecl t ident args (Just sStmt)
     _ -> error "error: parse failed"
@@ -232,7 +231,7 @@ analyseStmt (ReturnStmt e) = do
   case (e, rett) of
     (Nothing, Void) -> pure $ SReturnStmt Nothing
     -- a non-void function must return a value
-    (Nothing, _) -> throwError $ ReturnError ident rett
+    (Nothing, _) -> throwError $ ReturnError ident
     -- a void function cannot return a value
     (Just _, Void) -> throwError $ VoidError Function ident
     (Just expr, _) -> do
