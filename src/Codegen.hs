@@ -249,6 +249,7 @@ codegenExpr (t, SUnaryOp op ex) = do
   case op of
     Neg -> case t of
       Int -> L.sub (L.int32 0) ex'
+      Char -> L.sub (L.int8 0) ex'
       Float -> L.fsub (L.double 0) ex'
       _ -> error "internal error: semant failed"
     Not -> L.xor ex' (L.bit 1)

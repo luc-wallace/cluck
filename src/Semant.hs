@@ -1,7 +1,7 @@
 module Semant where
 
-import Cfg
 import Ast
+import Cfg
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Map (Map)
@@ -53,7 +53,7 @@ instance Show SemantError where
   show (TypeError msg t1 t2) = Text.printf "error: %s\n       expected %s but got %s" msg (show t1) (show t2)
   show (ArgumentError ident e g) = Text.printf "error: expected %d arguments in call to '%s(...)' but got %d" e ident g
   show (BinaryOprtError op t1 t2) = Text.printf "error: operation '%s' is not possible for types %s and %s" (show op) (show t1) (show t2)
-  show (UnaryOprtError op t) = Text.printf "error: no instance of %s for operator '%s'" (show t) (show op)
+  show (UnaryOprtError op t) = Text.printf "error: operation '%s' is not possible for type %s" (show op) (show t)
   show (VoidError d ident) = case d of
     Function -> Text.printf "error: unexpected return statement in function '%s(...)' of type void" ident
     Variable -> Text.printf "error: variable '%s' cannot have type void" ident
@@ -336,8 +336,8 @@ analyseExpr (FunctionExpr ident args) = do
       let expt = length args'
           acc = length args
        in if expt - acc /= 0
-            -- function call must have the same number of args as the original function definition
-            then throwError $ ArgumentError ident expt acc
+            then -- function call must have the same number of args as the original function definition
+              throwError $ ArgumentError ident expt acc
             else do
               sArgs <- mapM analyseArg $ zip [1 ..] $ zip args' args
               pure (t, SFunctionExpr ident sArgs)
@@ -385,7 +385,7 @@ analyseExpr (BinaryOp op e1 e2) = do
     _ -> do
       -- logical operators (apart from equality) can only be performed on numeric values
       unless (t1 == t2 && (op `elem` [EqTo, NtEqTo] || isNumeric t1)) $ throwError $ BinaryOprtError op t1 t2
-      
+
       -- logical operators always produce a boolean value
       if isLogical op
         then pure (Bool, sbinop)
@@ -393,7 +393,7 @@ analyseExpr (BinaryOp op e1 e2) = do
 analyseExpr (UnaryOp op expr) = do
   sExpr@(t, e) <- analyseExpr expr
   case op of
-    Neg -> if isNumeric t then pure (t, SUnaryOp Neg sExpr) else throwError $ UnaryOprtError op t
+    Neg -> if isNumeric t && t /= Bool then pure (t, SUnaryOp Neg sExpr) else throwError $ UnaryOprtError op t
     Not -> if t == Bool then pure (Bool, SUnaryOp Not sExpr) else throwError $ UnaryOprtError op t
     Inc -> case e of -- only LVals can be incremented/decremented
       LVal l -> pure (t, SInc l)
@@ -401,11 +401,13 @@ analyseExpr (UnaryOp op expr) = do
     Dec -> case e of
       LVal l -> pure (t, SDec l)
       _ -> throwError $ LValError op
-    Ref -> do -- only an LVal can be referenced
+    Ref -> do
+      -- only an LVal can be referenced
       case e of
         LVal l -> pure (Pointer t, SRef l)
         _ -> throwError $ LValError Ref
-    Deref -> do -- only pointer types can be dereferenced
+    Deref -> do
+      -- only pointer types can be dereferenced
       ty <- unwrapPointer t
       pure (ty, LVal $ LDeref sExpr)
     _ -> error $ "error: invalid unary operator " ++ show op
