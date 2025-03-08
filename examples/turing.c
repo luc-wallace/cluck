@@ -1,8 +1,9 @@
 /*
 EXAMPLE: turing.c
 
-a basic implementation of a turing machine
-0 represents a blank, 1 represents a 0 and 2 represents a 1
+a basic implementation of a turing machine that
+adds one to a binary number
+
 */
 
 // output tape state to console
