@@ -18,6 +18,7 @@ data Type
   | Array Type (Maybe Int)
   deriving (Eq)
 
+-- convert type to C syntax representation
 instance Show Type where
   show Char = "char"
   show Bool = "bool"
@@ -32,10 +33,6 @@ data Decl
   = VariableDecl Type Identifier (Maybe Expr)
   | FunctionDecl Type Identifier [Arg] (Maybe Stmt)
   deriving (Show)
-
-declTy :: Decl -> Type
-declTy (VariableDecl t _ _) = t
-declTy (FunctionDecl t _ _ _) = t
 
 type Arg = (Type, Identifier)
 
@@ -96,6 +93,7 @@ data Oprt
   | Dec
   deriving (Eq)
 
+-- convert operator to C syntax representation
 instance Show Oprt where
   show Not = "!"
   show And = "&&"
@@ -118,6 +116,7 @@ instance Show Oprt where
   show Inc = "++"
   show Dec = "--"
 
+-- generate C header file from AST
 genHeader :: Program -> String
 genHeader (Program p) = intercalate "\n\n" (map showDecl p) ++ "\n"
   where

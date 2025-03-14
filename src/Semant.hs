@@ -47,6 +47,7 @@ data SemantError
   | ArrayTypeError Identifier Type
   | SwitchError
 
+-- convert error to human readable error messages
 instance Show SemantError where
   show (NameError d ident) = Text.printf "error: %s '%s' is not defined" (dKind d) ident
   show (RedefinitionError d ident) = Text.printf "error: %s '%s' is redefined" (dKind d) ident
@@ -90,6 +91,7 @@ isConstant (FloatLiteral _) = True
 isConstant (CharLiteral _) = True
 isConstant _ = False
 
+-- check if a program is valid by checking all top level declarations
 analyseProgram :: Program -> Either SemantError SProgram
 analyseProgram (Program decls) =
   evalState (runExceptT (SProgram <$> mapM analyseDecl decls)) baseEnv
@@ -105,6 +107,7 @@ analyseProgram (Program decls) =
       ]
     baseEnv = Env {vars = M.empty, funcs = M.fromList builtIns, curFunc = ("", Void), inLoop = False}
 
+-- check if a variable or function declaration is valid
 analyseDecl :: Decl -> Semant SDecl
 analyseDecl d@(VariableDecl t1 ident expr) = do
   -- variables cannot have the type void
@@ -153,12 +156,15 @@ analyseDecl d@(FunctionDecl t ident args stmt) = do
       -- args are added to the Env to function as variable declarations within the function body
       foldl (\m' (t', ident') -> M.insert ident' (VariableDecl t' ident' Nothing) m') m args'
 
+
+-- check if an identifier is already defined in the Env
 isRedefined :: Map Identifier Decl -> Identifier -> Bool
 isRedefined m ident = case M.lookup ident m of
   Just (FunctionDecl _ _ _ (Just _)) -> True
   Just (VariableDecl _ _ (Just _)) -> True
   _ -> False
 
+-- check if a statement is valid
 analyseStmt :: Stmt -> Semant SStmt
 analyseStmt (BlockStmt stmts) = do
   oldState <- get
@@ -279,6 +285,7 @@ analyseStmt ContinueStmt = do
   unless inl $ throwError BreakContError
   pure SContinueStmt
 
+-- check if an expression is valid
 analyseExpr :: Expr -> Semant SExpr
 -- literals do not need to be analysed
 analyseExpr (IntLiteral n) = pure (Int, SIntLiteral n)
@@ -289,7 +296,7 @@ analyseExpr Null = pure (Pointer Void, SNull)
 analyseExpr (StringLiteral s) = pure (Pointer Char, SStringLiteral s)
 analyseExpr (VariableExpr ident) = do
   vars' <- gets vars
-  -- check if variable has been defined
+  -- check if variable has been redefined, otherwise return lvalue
   case M.lookup ident vars' of
     Nothing -> throwError $ NameError Variable ident
     Just (VariableDecl t _ _) -> pure (t, LVal (LVar ident))

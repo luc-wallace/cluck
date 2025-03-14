@@ -15,18 +15,23 @@ type Parser = Parsec Void Text
 sc :: Parser ()
 sc = L.space space1 (L.skipLineComment "//") (L.skipBlockComment "/*" "*/")
 
+-- run any parser and consume all whitespace after
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
+-- parse any string and consume all whitespace after
 symbol :: Text -> Parser Text
 symbol = L.symbol sc
 
+-- parse any string of characters, must be terminated by another character
 pWord :: Text -> Parser ()
 pWord w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
+-- parse any sequence of digits
 integer :: Parser Integer
 integer = lexeme L.decimal
 
+-- letter, digit or underscore
 nonDigit :: Parser Char
 nonDigit = alphaNumChar <|> char '_'
 
@@ -34,6 +39,7 @@ nonDigit = alphaNumChar <|> char '_'
 pParens :: Parser a -> Parser a
 pParens = between (symbol "(") (symbol ")")
 
+-- list of all cluck keywords
 keywords :: [Text]
 keywords =
   [ "break",
@@ -61,6 +67,7 @@ pIdent = label "identifier" $ do
   when (pack ident `elem` keywords) $ fail "identifier cannot be keyword"
   return $ pack ident
 
+-- parse basic primitive types
 pBaseType :: Parser Type
 pBaseType =
   choice
@@ -71,17 +78,18 @@ pBaseType =
       Void <$ pWord "void"
     ]
 
--- handles recursive pointer type definition
+-- parse all primitive types including pointers
 pType :: Parser Type
 pType = label "type specifier" $ do
   base <- pBaseType
   pointers <- many $ try $ space *> string "*"
   return $ foldr (const Pointer) base pointers
 
--- parent parser
+-- top level parser - parse all declarations at top level
 pProgram :: Parser Program
 pProgram = Program <$ lexeme space <*> many (lexeme pDecl) <* eof
 
+-- parse a variable or function declaration
 pDecl :: Parser Decl
 pDecl = try pVarDecl <|> pFuncDecl
 
@@ -92,6 +100,7 @@ pVarDecl =
     <*> optional (symbol "=" *> lexeme pExpr)
     <* symbol ";"
 
+-- parse a function declaration with an optional body (prototype function)
 pFuncDecl :: Parser Decl
 pFuncDecl =
   FunctionDecl
@@ -117,7 +126,7 @@ pArrayArg = do
 pExpr :: Parser Expr
 pExpr = label "expression" (makeExprParser pTerm operatorTable)
 
--- parses all basic expressions
+-- parses all basic expressions (terms) - try is used where grammars overlap
 pTerm :: Parser Expr
 pTerm =
   label "term expression" $
@@ -138,6 +147,7 @@ pTerm =
           pParens pExpr
         ]
 
+-- parse any type of statement
 pStmt :: Parser Stmt
 pStmt =
   label "statement" $
@@ -157,6 +167,7 @@ pStmt =
           pExprStmt
         ]
 
+-- parse a variable declaration with an optional value
 pVarDeclStmt :: Parser Stmt
 pVarDeclStmt =
   VariableDeclStmt
@@ -165,6 +176,7 @@ pVarDeclStmt =
     <*> optional (symbol "=" *> lexeme pExpr)
     <* symbol ";"
 
+-- parse an array declaration with an optional list of initialisation values
 pArrayDeclStmt :: Parser Stmt
 pArrayDeclStmt =
   ArrayDeclStmt
@@ -191,6 +203,7 @@ pExprStmt = ExprStmt <$> pExpr <* symbol ";"
 pBlockStmt :: Parser Stmt
 pBlockStmt = BlockStmt <$> between (symbol "{") (symbol "}") (many pStmt)
 
+-- parse if statement with optional else clause
 pIfStmt :: Parser Stmt
 pIfStmt = IfStmt <$ pWord "if" <*> lexeme (pParens pExpr) <*> pStmt <*> optional (pWord "else" *> pStmt)
 
@@ -250,9 +263,11 @@ operatorTable =
     ]
   ]
 
+-- parse infix expressions
 binary :: Text -> (Expr -> Expr -> Expr) -> Operator Parser Expr
 binary name f = InfixL (label "infix expression" $ f <$ symbol name)
 
+-- parse prefix and posfix expressions
 prefix, postfix :: Text -> (Expr -> Expr) -> Operator Parser Expr
 prefix name f = Prefix (label "prefix expression" $ f <$ symbol name)
 postfix name f = Postfix (label "postfix expression" $ f <$ symbol name)

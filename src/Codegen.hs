@@ -33,6 +33,10 @@ type LLVM = L.ModuleBuilderT (State Env)
 
 type Codegen = L.IRBuilderT LLVM
 
+-- insert operand into Env indexed by identifier
+registerOperand :: MonadState Env m => Identifier -> AST.Operand -> m ()
+registerOperand ident op =  modify $ \env -> env {operands = M.insert ident op (operands env)}
+ 
 -- converts a cluck AST type to an LLVM type
 convType :: MonadState Env m => Type -> m AST.Type
 convType (Pointer Void) = pure $ AST.ptr AST.i8
@@ -46,6 +50,7 @@ convType t = case t of
   Array ty (Just size) -> AST.ArrayType (fromIntegral size) <$> convType ty
   Array ty Nothing -> AST.ArrayType 0 <$> convType ty
 
+-- convert expression to LLVM constant type
 genConstant :: SExpr -> C.Constant
 genConstant e = case e of
   (_, SIntLiteral n) -> C.Int 32 $ fromIntegral n
@@ -70,7 +75,7 @@ sizeof t = case t of
 emitBuiltIn :: (Identifier, [AST.Type], AST.Type) -> LLVM ()
 emitBuiltIn (name, args, rett) = do
   func <- L.extern ((AST.mkName . unpack) name) args rett
-  modify $ \env -> env {operands = M.insert name func (operands env)}
+  registerOperand name func
 
 -- builds an LLVM module from the AST definitions
 codegenProgram :: SProgram -> AST.Module
@@ -85,9 +90,12 @@ codegenProgram (SProgram decls) =
           ("pow", [AST.double, AST.double], AST.double)
         ]
       -- prinf and scanf are emitted separately as they use varargs
-      printf <- L.externVarArgs (AST.mkName "printf") [AST.ptr AST.i8] AST.i32
-      scanf <- L.externVarArgs (AST.mkName "scanf") [AST.ptr AST.i8] AST.i32
-      modify $ \env -> env {operands = M.insert "scanf" scanf $ M.insert "printf" printf (operands env)}
+      -- printf <- L.externVarArgs (AST.mkName "printf") [AST.ptr AST.i8] AST.i32
+      -- scanf <- L.externVarArgs (AST.mkName "scanf") [AST.ptr AST.i8] AST.i32
+
+      L.externVarArgs (AST.mkName "printf") [AST.ptr AST.i8] AST.i32 >>= registerOperand "printf"
+      L.externVarArgs (AST.mkName "scanf") [AST.ptr AST.i8] AST.i32 >>= registerOperand "scanf"
+
       mapM_ codegenDecl decls
 
 -- returns the memory address of an LVal, anything on the left-hand side of an assignment expression
@@ -112,7 +120,7 @@ codegenDecl (SFunctionDecl _ _ _ Nothing) = pure () -- ignore function prototype
 codegenDecl (SFunctionDecl t ident args (Just b)) = mdo
   {- mdo is used for recursive definitions, the function needs to be added to the Env before codegen so that
      the function can call itself recursively -}
-  modify $ \env -> env {operands = M.insert ident function (operands env)} -- add memory address to env
+  registerOperand ident function
   oldState <- get
 
   function <- do
@@ -132,7 +140,7 @@ codegenDecl (SFunctionDecl t ident args (Just b)) = mdo
           ty <- convType t'
           addr <- L.alloca ty Nothing 0 -- allocate memory for the parameter
           L.store addr 0 op
-          modify $ \env -> env {operands = M.insert i addr (operands env)}
+          registerOperand i addr
 codegenDecl (SVariableDecl t ident e) = do
   let name = AST.mkName $ cs ident
       val = case e of
@@ -146,7 +154,7 @@ codegenDecl (SVariableDecl t ident e) = do
 
   ty <- convType t
   var <- L.global name ty val
-  modify $ \env -> env {operands = M.insert ident var (operands env)}
+  registerOperand ident var
 
 codegenExpr :: SExpr -> Codegen AST.Operand
 codegenExpr (_, SIntLiteral n) = pure $ L.int32 (fromIntegral n)
@@ -360,7 +368,7 @@ codegenStmt (SForStmt init' cond inc body) = mdo
 codegenStmt (SVariableDeclStmt t ident expr) = do
   ty <- convType t
   addr <- L.alloca ty Nothing 0 -- allocate memory for variable
-  modify $ \env -> env {operands = M.insert ident addr (operands env)}
+  registerOperand ident addr
   case expr of
     Nothing -> pure ()
     Just e -> do
@@ -375,7 +383,7 @@ codegenStmt (SArrayDeclStmt t ident size items) = do
   decayVal <- L.gep addr [L.int64 0, L.int64 0] -- return pointer to first item
   L.store decayPtr 0 decayVal
 
-  modify $ \env -> env {operands = M.insert ident decayPtr (operands env)}
+  registerOperand ident decayPtr
   case items of
     Nothing -> pure ()
     Just arr -> do
